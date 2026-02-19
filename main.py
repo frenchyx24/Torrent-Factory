@@ -1,112 +1,77 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Torrent Factory V38 - Backend & Static Server
-Auto-install dependencies & Cross-platform support
-"""
 
 import os
-import sys
-import subprocess
-import platform
 import json
 import logging
 from pathlib import Path
 from datetime import datetime
-
-# --- Auto-installation des dépendances ---
-def install_dependencies():
-    required = ["flask", "py3createtorrent", "requests"]
-    for package in required:
-        try:
-            __import__(package.replace("-", "_"))
-        except ImportError:
-            print(f"📦 Installation de {package}...")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
-install_dependencies()
-
 from flask import Flask, request, jsonify, send_from_directory
 
-# --- Configuration des chemins ---
-# On définit le dossier de base comme étant celui où se trouve main.py
-BASE_DIR = Path(__file__).parent.resolve()
-STATIC_FOLDER = BASE_DIR / "dist"
-
-app = Flask(__name__, static_folder=str(STATIC_FOLDER), static_url_path='')
+app = Flask(__name__, static_folder='dist', static_url_path='')
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-def get_default_app_data() -> Path:
-    system = platform.system().lower()
-    if system == "windows":
-        base = Path(os.environ.get("APPDATA", str(Path.home())))
-        return base / "TorrentFactory"
-    else:
-        return Path.home() / ".config" / "TorrentFactory"
+# Configuration
+CONFIG_DIR = Path(os.environ.get("TF_CONFIG_DIR", "/config"))
+CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+CONFIG_FILE = CONFIG_DIR / "config.json"
 
-APP_DATA = Path(os.environ.get("TF_CONFIG_DIR", str(get_default_app_data())))
-APP_DATA.mkdir(parents=True, exist_ok=True)
-
-CONFIG_FILE = APP_DATA / "config.json"
 DEFAULT_CONFIG = {
     "series_root": "/data/series",
     "series_out": "/data/torrents/series",
     "movies_root": "/data/movies",
     "movies_out": "/data/torrents/movies",
-    "max_workers": 2,
-    "private": True,
-    "analyze_audio": True
+    "tracker": "udp://tracker.opentrackr.org:1337/announce",
+    "private": True
 }
 
-if CONFIG_FILE.exists():
-    with open(CONFIG_FILE, "r") as f:
-        CONFIG = json.load(f)
-else:
-    CONFIG = DEFAULT_CONFIG.copy()
+def load_config():
+    if CONFIG_FILE.exists():
+        with open(CONFIG_FILE, "r") as f:
+            return {**DEFAULT_CONFIG, **json.load(f)}
+    return DEFAULT_CONFIG
 
-# --- API Routes ---
+CONFIG = load_config()
+
 @app.route("/api/config", methods=["GET", "POST"])
 def api_config():
+    global CONFIG
     if request.method == "POST":
-        data = request.get_json()
-        CONFIG.update(data)
+        CONFIG.update(request.get_json())
         with open(CONFIG_FILE, "w") as f:
-            json.dump(CONFIG, f)
-        return jsonify({"success": True})
+            json.dump(CONFIG, f, indent=4)
+        return jsonify({"status": "success"})
     return jsonify(CONFIG)
 
-@app.route("/api/logs")
-def get_logs():
-    return jsonify([
-        {"id": 1, "time": datetime.now().strftime("%H:%M:%S"), "msg": "Système Torrent Factory prêt", "level": "info"}
-    ])
+@app.route("/api/scan/<type>")
+def scan_dir(type):
+    path_key = "series_root" if type == "series" else "movies_root"
+    root_path = Path(CONFIG.get(path_key, ""))
+    
+    if not root_path.exists():
+        return jsonify([])
+    
+    items = []
+    try:
+        for entry in os.scandir(root_path):
+            if entry.is_dir():
+                size = sum(f.stat().st_size for f in Path(entry.path).glob('**/*') if f.is_file())
+                items.append({
+                    "name": entry.name,
+                    "path": entry.path,
+                    "size": f"{size / (1024**3):.2f} GB" if size > 0 else "0 GB"
+                })
+    except Exception as e:
+        logging.error(f"Scan error: {e}")
+        
+    return jsonify(sorted(items, key=lambda x: x['name']))
 
-# --- Serve Frontend ---
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
-    # Si le fichier existe dans dist, on le sert
     if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
-    # Sinon on sert l'index.html (pour le routage React)
-    else:
-        if not os.path.exists(os.path.join(app.static_folder, 'index.html')):
-            return f"Erreur : index.html introuvable dans {app.static_folder}. Vérifiez que le build a été effectué.", 404
-        return send_from_directory(app.static_folder, 'index.html')
+    return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("🚀 TORRENT FACTORY V1 - DÉPLOYÉ")
-    print(f"🌐 Interface: http://localhost:5000")
-    print(f"📂 Config: {APP_DATA}")
-    print(f"📁 Static Folder: {STATIC_FOLDER}")
-    
-    if not STATIC_FOLDER.exists():
-        print(f"⚠️ ATTENTION : Le dossier {STATIC_FOLDER} n'existe pas !")
-    elif not (STATIC_FOLDER / "index.html").exists():
-        print(f"⚠️ ATTENTION : index.html est absent de {STATIC_FOLDER}")
-    else:
-        print(f"✅ Interface détectée et prête.")
-        
-    print("=" * 60)
     app.run(host="0.0.0.0", port=5000)
