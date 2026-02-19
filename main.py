@@ -7,11 +7,11 @@ import logging
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, make_response
 
-# On définit les dossiers de base
+# Configuration des chemins
 APP_DIR = Path(__file__).parent.resolve()
 STATIC_FOLDER = APP_DIR / "dist"
 
-app = Flask(__name__, static_folder=str(STATIC_FOLDER), static_url_path='')
+app = Flask(__name__, static_folder=str(STATIC_FOLDER))
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # Configuration via Variable d'environnement ou /config par défaut
@@ -38,6 +38,7 @@ def load_config():
 
 CONFIG = load_config()
 
+# --- API ---
 @app.route("/api/config", methods=["GET", "POST"])
 def api_config():
     global CONFIG
@@ -61,26 +62,18 @@ def scan_dir(type):
     except: pass
     return jsonify(sorted(items, key=lambda x: x['name']))
 
+# --- FRONTEND ---
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
-    if path != "" and os.path.exists(STATIC_FOLDER / path):
+    if path != "" and (STATIC_FOLDER / path).exists():
         return send_from_directory(str(STATIC_FOLDER), path)
     
-    index_path = STATIC_FOLDER / "index.html"
-    if index_path.exists():
+    index_file = STATIC_FOLDER / "index.html"
+    if index_file.exists():
         return send_from_directory(str(STATIC_FOLDER), "index.html")
     
-    # Page de secours si build manquant
-    return make_response(f"<h1>Erreur : Interface non trouvee dans {STATIC_FOLDER}</h1><p>Verifiez votre build Docker.</p>", 404)
+    return make_response(f"Erreur: Interface absente dans {STATIC_FOLDER}", 404)
 
 if __name__ == "__main__":
-    print("\n" + "="*50)
-    print("🚀 TORRENT FACTORY - DEMARRAGE")
-    print(f"📂 Chemin App: {APP_DIR}")
-    print(f"📁 Chemin Static: {STATIC_FOLDER}")
-    print(f"⚙️  Chemin Config: {CONFIG_DIR}")
-    if not (STATIC_FOLDER / "index.html").exists():
-        print("⚠️  ATTENTION : index.html est ABSENT du dossier static !")
-    print("="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
