@@ -28,8 +28,12 @@ install_dependencies()
 
 from flask import Flask, request, jsonify, send_from_directory
 
-# --- Configuration ---
-app = Flask(__name__, static_folder='dist', static_url_path='')
+# --- Configuration des chemins ---
+# On définit le dossier de base comme étant celui où se trouve main.py
+BASE_DIR = Path(__file__).parent.resolve()
+STATIC_FOLDER = BASE_DIR / "dist"
+
+app = Flask(__name__, static_folder=str(STATIC_FOLDER), static_url_path='')
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 def get_default_app_data() -> Path:
@@ -81,9 +85,13 @@ def get_logs():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
-    if path != "" and os.path.exists(app.static_folder + '/' + path):
+    # Si le fichier existe dans dist, on le sert
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
+    # Sinon on sert l'index.html (pour le routage React)
     else:
+        if not os.path.exists(os.path.join(app.static_folder, 'index.html')):
+            return f"Erreur : index.html introuvable dans {app.static_folder}. Vérifiez que le build a été effectué.", 404
         return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == "__main__":
@@ -91,5 +99,14 @@ if __name__ == "__main__":
     print("🚀 TORRENT FACTORY V1 - DÉPLOYÉ")
     print(f"🌐 Interface: http://localhost:5000")
     print(f"📂 Config: {APP_DATA}")
+    print(f"📁 Static Folder: {STATIC_FOLDER}")
+    
+    if not STATIC_FOLDER.exists():
+        print(f"⚠️ ATTENTION : Le dossier {STATIC_FOLDER} n'existe pas !")
+    elif not (STATIC_FOLDER / "index.html").exists():
+        print(f"⚠️ ATTENTION : index.html est absent de {STATIC_FOLDER}")
+    else:
+        print(f"✅ Interface détectée et prête.")
+        
     print("=" * 60)
     app.run(host="0.0.0.0", port=5000)
