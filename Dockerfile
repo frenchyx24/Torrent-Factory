@@ -1,16 +1,8 @@
-# Étape 1 : Construction du Frontend React
-FROM node:20-slim AS build-frontend
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-
-# Étape 2 : Image finale avec Python
 FROM python:3.11-slim
+
 WORKDIR /app
 
-# Installation des dépendances système nécessaires
+# Installation des dépendances système pour py3createtorrent
 RUN apt-get update && apt-get install -y \
     gcc \
     python3-dev \
@@ -20,16 +12,13 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copie du code source
-COPY . .
-# Copie du build React vers le dossier dist
-COPY --from=build-frontend /app/dist ./dist
+# Copie du script unique
+COPY main.py .
 
-# Variables d'environnement pour Torrent Factory
+# Dossier de config par défaut pour Docker
 ENV TF_CONFIG_DIR=/config
-ENV FLASK_ENV=production
+VOLUME /config
 
 EXPOSE 5000
 
-# Lancement du script
 CMD ["python", "main.py"]
