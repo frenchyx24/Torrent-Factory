@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -29,3 +29,13 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/${{ github.repository }}:latest, ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            main.py
+            requirements.txt
+            docker-compose.yml
+          body_path: README.md
