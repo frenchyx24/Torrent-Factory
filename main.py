@@ -7,7 +7,17 @@ import logging
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory
 
-app = Flask(__name__, static_folder='dist', static_url_path='')
+# On définit le dossier statique
+STATIC_FOLDER = os.path.join(os.getcwd(), 'dist')
+
+# S'il n'existe pas, on le crée pour éviter les erreurs Flask
+if not os.path.exists(STATIC_FOLDER):
+    os.makedirs(STATIC_FOLDER, exist_ok=True)
+    # On crée un index.html minimal pour que ça ne renvoie pas une erreur 404 brute
+    with open(os.path.join(STATIC_FOLDER, 'index.html'), 'w') as f:
+        f.write("<html><body><h1>Interface en cours de build ou manquante</h1></body></html>")
+
+app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='')
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # Configuration
@@ -58,7 +68,6 @@ def scan_dir(type):
     try:
         for entry in os.scandir(root_path):
             if entry.is_dir():
-                # Calcul rapide de la taille
                 size = 0
                 try:
                     size = sum(f.stat().st_size for f in Path(entry.path).glob('**/*') if f.is_file())
@@ -74,7 +83,6 @@ def scan_dir(type):
         
     return jsonify(sorted(items, key=lambda x: x['name']))
 
-# Gestion du Single Page Application (React Router)
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
@@ -88,7 +96,5 @@ if __name__ == "__main__":
     print(f"🌐 Interface: http://0.0.0.0:5000")
     print(f"📂 Config: {CONFIG_DIR}")
     print(f"📁 Static Folder: {os.path.abspath(app.static_folder)}")
-    if not os.path.exists(app.static_folder):
-        print(f"⚠️ ATTENTION : Le dossier {app.static_folder} n'existe pas !")
     print("="*60)
     app.run(host="0.0.0.0", port=5000)
