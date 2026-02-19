@@ -1,23 +1,23 @@
 #!/bin/bash
 
-echo "⚡ Installation de Torrent Factory..."
+echo "⚡ Torrent Factory - Installation"
+echo "--------------------------------"
 
-# Vérification de Python
-if ! command -v python3 &> /dev/null; then
-    echo "❌ Erreur: Python3 n'est pas installé."
-    exit 1
+# Vérification de Docker
+if ! [ -x "$(command -v docker)" ]; then
+  echo "❌ Erreur: Docker n'est pas installé." >&2
+  exit 1
 fi
 
-# Clonage du dépôt si on n'est pas déjà dedans
-if [ ! -d ".git" ]; then
-    git clone https://github.com/${GITHUB_USER:-votre-nom}/torrent-factory.git
-    cd torrent-factory
+# Création des dossiers
+mkdir -p config data/series data/movies data/torrents
+
+# Téléchargement du docker-compose.yml si nécessaire
+if [ ! -f "docker-compose.yml" ]; then
+    curl -O https://raw.githubusercontent.com/${GITHUB_REPOSITORY:-frenchyx24/Torrent-Factory}/main/docker-compose.yml
 fi
 
-# Installation des dépendances
-echo "📦 Installation des dépendances Python..."
-pip install -r requirements.txt
+echo "🚀 Lancement de l'application..."
+docker compose up -d
 
-# Message de succès
-echo "✅ Installation terminée !"
-echo "🚀 Pour lancer Torrent Factory, tapez : python3 main.py"
+echo "✅ Terminé ! Accédez à l'interface sur http://localhost:5000"
