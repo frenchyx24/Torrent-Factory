@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,16 +22,30 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { RefreshCw, Layers, Zap, Search } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
-
-const mockSeries = [
-  { id: 1, name: "The Last of Us", tag: "MULTI", size: "45.2 GB", mode: "Pack" },
-  { id: 2, name: "Succession", tag: "VOSTFR", size: "32.1 GB", mode: "Saison" },
-  { id: 3, name: "The Bear", tag: "FRENCH", size: "12.5 GB", mode: "EP" },
-  { id: 4, name: "Shogun", tag: "MULTI", size: "58.9 GB", mode: "Pack" },
-];
+import { showSuccess, showError } from '@/utils/toast';
+import { cn } from "@/lib/utils";
 
 const Index = () => {
+  const [series, setSeries] = useState([]);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const fetchSeries = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/scan/series');
+      const data = await res.json();
+      setSeries(data);
+    } catch (e) {
+      showError("Erreur lors du scan des séries");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSeries();
+  }, []);
 
   return (
     <Layout>
@@ -41,8 +55,13 @@ const Index = () => {
           <p className="text-slate-400 mt-1">Gérez vos séries et générez des torrents en masse.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white">
-            <RefreshCw className="w-4 h-4 mr-2" />
+          <Button 
+            onClick={fetchSeries} 
+            disabled={loading}
+            variant="outline" 
+            className="bg-white/5 border-white/10 hover:bg-white/10 text-white"
+          >
+            <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
             Scanner
           </Button>
           <Button className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20">
@@ -77,12 +96,12 @@ const Index = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mockSeries.filter(s => s.name.toLowerCase().includes(search.toLowerCase())).map((series) => (
-              <TableRow key={series.id} className="border-white/5 hover:bg-white/5 transition-colors group">
+            {series.filter(s => s.name.toLowerCase().includes(search.toLowerCase())).map((item, i) => (
+              <TableRow key={i} className="border-white/5 hover:bg-white/5 transition-colors group">
                 <TableCell><Checkbox className="border-white/20" /></TableCell>
-                <TableCell className="font-bold text-white">{series.name}</TableCell>
+                <TableCell className="font-bold text-white">{item.name}</TableCell>
                 <TableCell>
-                  <Select defaultValue={series.tag}>
+                  <Select defaultValue="MULTI">
                     <SelectTrigger className="w-32 bg-slate-950/50 border-white/10 text-xs h-8">
                       <SelectValue />
                     </SelectTrigger>
@@ -90,17 +109,16 @@ const Index = () => {
                       <SelectItem value="MULTI">MULTI</SelectItem>
                       <SelectItem value="FRENCH">FRENCH</SelectItem>
                       <SelectItem value="VOSTFR">VOSTFR</SelectItem>
-                      <SelectItem value="VO">VO</SelectItem>
                     </SelectContent>
                   </Select>
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="bg-indigo-500/10 text-indigo-400 border-indigo-500/20 font-mono text-[10px]">
-                    {series.size}
+                    {item.size}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Select defaultValue={series.mode}>
+                  <Select defaultValue="Pack">
                     <SelectTrigger className="w-32 bg-slate-950/50 border-white/10 text-xs h-8">
                       <SelectValue />
                     </SelectTrigger>
@@ -118,6 +136,13 @@ const Index = () => {
                 </TableCell>
               </TableRow>
             ))}
+            {series.length === 0 && !loading && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-10 text-slate-500">
+                  Aucune série trouvée dans /data/series
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
