@@ -1,39 +1,30 @@
-# Étape 1 : Construction du Frontend (React/Vite)
-FROM node:20-slim AS frontend-builder
-WORKDIR /app-frontend
-
-# On copie les fichiers de configuration
+# --- Étape 1 : Build du Frontend (React) ---
+FROM node:20-slim AS build-frontend
+WORKDIR /app
 COPY package*.json ./
-
-# On utilise --legacy-peer-deps pour éviter les erreurs de conflits avec React 19
-RUN npm install --legacy-peer-deps
-
-# On copie le reste et on build
+RUN npm install
 COPY . .
 RUN npm run build
 
-# Étape 2 : Image finale (Python)
+# --- Étape 2 : Build du Backend (Python) ---
 FROM python:3.11-slim
 WORKDIR /app
 
-# Installation des dépendances système nécessaires
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+# Installation des dépendances système (FFmpeg pour FFprobe plus tard)
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
-# Copie des fichiers du backend
-COPY main.py requirements.txt ./
+# Copie des fichiers Python
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copie du build du frontend depuis l'étape précédente
-COPY --from=frontend-builder /app-frontend/dist ./dist
+# Copie du code source Python
+COPY main.py .
 
-# Variables d'environnement
-ENV FLASK_ENV=production
+# Copie du dossier 'dist' généré à l'étape 1 vers le dossier 'dist' de l'image finale
+COPY --from=build-frontend /app/dist ./dist
+
+# Configuration des volumes et ports
 ENV TF_CONFIG_DIR=/config
-
-# Port exposé
 EXPOSE 5000
 
-# Lancement de l'application
 CMD ["python", "main.py"]
