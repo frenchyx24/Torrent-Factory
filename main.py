@@ -2,30 +2,34 @@
 # -*- coding: utf-8 -*-
 """
 Torrent Factory V38 - Backend & Static Server
+Auto-install dependencies & Cross-platform support
 """
 
 import os
 import sys
 import subprocess
 import platform
-import string
 import json
-import re
-import time
-import threading
-import uuid
 import logging
-import random
 from pathlib import Path
-from queue import Queue, Empty
 from datetime import datetime
-from collections import deque
+
+# --- Auto-installation des dépendances ---
+def install_dependencies():
+    required = ["flask", "py3createtorrent", "requests"]
+    for package in required:
+        try:
+            __import__(package.replace("-", "_"))
+        except ImportError:
+            print(f"📦 Installation de {package}...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+install_dependencies()
+
 from flask import Flask, request, jsonify, send_from_directory
 
-# --- Configuration Flask ---
+# --- Configuration ---
 app = Flask(__name__, static_folder='dist', static_url_path='')
-
-# --- Logique Backend V38 ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 def get_default_app_data() -> Path:
@@ -50,15 +54,13 @@ DEFAULT_CONFIG = {
     "analyze_audio": True
 }
 
-# Chargement config
 if CONFIG_FILE.exists():
     with open(CONFIG_FILE, "r") as f:
         CONFIG = json.load(f)
 else:
     CONFIG = DEFAULT_CONFIG.copy()
 
-# --- Routes API ---
-
+# --- API Routes ---
 @app.route("/api/config", methods=["GET", "POST"])
 def api_config():
     if request.method == "POST":
@@ -71,13 +73,11 @@ def api_config():
 
 @app.route("/api/logs")
 def get_logs():
-    # Simulation de logs pour l'exemple
     return jsonify([
         {"id": 1, "time": datetime.now().strftime("%H:%M:%S"), "msg": "Système Torrent Factory prêt", "level": "info"}
     ])
 
-# --- Gestion du Frontend React ---
-
+# --- Serve Frontend ---
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
@@ -89,6 +89,7 @@ def serve(path):
 if __name__ == "__main__":
     print("=" * 60)
     print("🚀 TORRENT FACTORY V1 - DÉPLOYÉ")
-    print(f"🌐 Interface accessible sur http://localhost:5000")
+    print(f"🌐 Interface: http://localhost:5000")
+    print(f"📂 Config: {APP_DATA}")
     print("=" * 60)
     app.run(host="0.0.0.0", port=5000)

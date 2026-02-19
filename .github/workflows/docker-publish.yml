@@ -28,7 +28,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest, ghcr.io/${{ github.repository }}:${{ github.sha }}
+          tags: |
+            ghcr.io/frenchyx24/torrent-factory:latest
+            ghcr.io/frenchyx24/torrent-factory:${{ github.sha }}
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -38,4 +40,5 @@ jobs:
             main.py
             requirements.txt
             docker-compose.yml
+            install.sh
           body_path: README.md
