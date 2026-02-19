@@ -5,22 +5,16 @@ import os
 import json
 import logging
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, make_response
 
-# On définit le dossier statique
-STATIC_FOLDER = os.path.join(os.getcwd(), 'dist')
-
-# S'il n'existe pas, on le crée pour éviter les erreurs Flask
-if not os.path.exists(STATIC_FOLDER):
-    os.makedirs(STATIC_FOLDER, exist_ok=True)
-    # On crée un index.html minimal pour que ça ne renvoie pas une erreur 404 brute
-    with open(os.path.join(STATIC_FOLDER, 'index.html'), 'w') as f:
-        f.write("<html><body><h1>Interface en cours de build ou manquante</h1></body></html>")
+# Configuration des chemins
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_FOLDER = os.path.join(BASE_DIR, 'dist')
 
 app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='')
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-# Configuration
+# Configuration de l'application
 CONFIG_DIR = Path(os.environ.get("TF_CONFIG_DIR", "/config"))
 CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_FILE = CONFIG_DIR / "config.json"
@@ -45,6 +39,8 @@ def load_config():
 
 CONFIG = load_config()
 
+# --- API ROUTES ---
+
 @app.route("/api/config", methods=["GET", "POST"])
 def api_config():
     global CONFIG
@@ -59,42 +55,47 @@ def api_config():
 def scan_dir(type):
     path_key = "series_root" if type == "series" else "movies_root"
     root_path = Path(CONFIG.get(path_key, ""))
-    
     if not root_path.exists():
-        logging.warning(f"Dossier non trouvé: {root_path}")
         return jsonify([])
-    
     items = []
     try:
         for entry in os.scandir(root_path):
             if entry.is_dir():
-                size = 0
-                try:
-                    size = sum(f.stat().st_size for f in Path(entry.path).glob('**/*') if f.is_file())
-                except: pass
-                
-                items.append({
-                    "name": entry.name,
-                    "path": entry.path,
-                    "size": f"{size / (1024**3):.2f} GB" if size > 0 else "0 GB"
-                })
-    except Exception as e:
-        logging.error(f"Erreur scan: {e}")
-        
+                items.append({"name": entry.name, "path": entry.path, "size": "0 GB"})
+    except: pass
     return jsonify(sorted(items, key=lambda x: x['name']))
+
+# --- SERVING FRONTEND ---
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+    # 1. Si le fichier existe physiquement (js, css, images)
+    file_path = os.path.join(app.static_folder, path)
+    if path != "" and os.path.exists(file_path):
         return send_from_directory(app.static_folder, path)
-    return send_from_directory(app.static_folder, 'index.html')
+    
+    # 2. Sinon, on cherche index.html pour le SPA
+    index_path = os.path.join(app.static_folder, 'index.html')
+    if os.path.exists(index_path):
+        return send_from_directory(app.static_folder, 'index.html')
+    
+    # 3. ULTIME SECOURS : Si index.html est absent, on affiche une erreur propre
+    files_in_dist = os.listdir(app.static_folder) if os.path.exists(app.static_folder) else "DOSSIER ABSENT"
+    html_error = f"""
+    <html>
+        <body style="background: #0f172a; color: white; font-family: sans-serif; padding: 50px; text-align: center;">
+            <h1 style="color: #f43f5e;">⚠️ ERREUR DE DÉPLOIEMENT</h1>
+            <p>Le serveur Flask tourne, mais l'interface React (dist/index.html) est introuvable.</p>
+            <div style="background: #1e293b; padding: 20px; border-radius: 10px; display: inline-block; text-align: left; margin-top: 20px;">
+                <p><b>Chemin cherché :</b> {index_path}</p>
+                <p><b>Contenu du dossier dist :</b> {files_in_dist}</p>
+            </div>
+            <p style="margin-top: 20px; color: #94a3b8;">Vérifiez vos GitHub Actions, le build a probablement échoué.</p>
+        </body>
+    </html>
+    """
+    return make_response(html_error, 404)
 
 if __name__ == "__main__":
-    print("="*60)
-    print("🚀 TORRENT FACTORY V1 - DÉPLOYÉ")
-    print(f"🌐 Interface: http://0.0.0.0:5000")
-    print(f"📂 Config: {CONFIG_DIR}")
-    print(f"📁 Static Folder: {os.path.abspath(app.static_folder)}")
-    print("="*60)
     app.run(host="0.0.0.0", port=5000)
