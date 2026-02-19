@@ -1,0 +1,3 @@
+flask
+py3createtorrent
+static-ffmpeg

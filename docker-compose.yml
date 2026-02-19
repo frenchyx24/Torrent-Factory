@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  torrent-factory:
+    build: .
+    container_name: torrent-factory
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./config:/config
+      - /votre/chemin/series:/data/series
+      - /votre/chemin/movies:/data/movies
+      - /votre/chemin/torrents:/data/torrents
+    restart: unless-stopped
