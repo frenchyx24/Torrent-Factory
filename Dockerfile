@@ -1,8 +1,14 @@
 # Étape 1 : Construction du Frontend (React/Vite)
 FROM node:20-slim AS frontend-builder
 WORKDIR /app-frontend
+
+# On copie les fichiers de configuration
 COPY package*.json ./
-RUN npm install
+
+# On utilise --legacy-peer-deps pour éviter les erreurs de conflits avec React 19
+RUN npm install --legacy-peer-deps
+
+# On copie le reste et on build
 COPY . .
 RUN npm run build
 
@@ -10,7 +16,7 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
-# Installation des dépendances système nécessaires (ex: ffprobe pour l'analyse audio)
+# Installation des dépendances système nécessaires
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
