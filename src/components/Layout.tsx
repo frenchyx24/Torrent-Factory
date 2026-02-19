@@ -9,7 +9,7 @@ import {
   Activity, 
   Terminal, 
   Settings, 
-  Lightning,
+  Zap,
   ChevronRight
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
@@ -32,7 +32,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       <aside className="w-64 border-r border-white/10 bg-slate-900/50 backdrop-blur-xl flex flex-col p-6">
         <div className="flex items-center gap-3 mb-10 px-2">
           <div className="bg-indigo-600 p-2 rounded-lg shadow-lg shadow-indigo-500/20">
-            <Lightning className="w-6 h-6 text-white fill-white" />
+            <Zap className="w-6 h-6 text-white fill-white" />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-white">Torrent Factory</h1>
         </div>
