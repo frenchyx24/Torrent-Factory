@@ -5,29 +5,53 @@ import Layout from '@/components/Layout';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, RefreshCw, Zap, Film } from 'lucide-react';
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, RefreshCw, Zap, Loader2, Play } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
 import { showSuccess, showError } from '@/utils/toast';
+import { useNavigate } from 'react-router-dom';
 
 const Movies = () => {
   const [movies, setMovies] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const navigate = useNavigate();
 
   const fetchMovies = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/scan/movies');
+      const res = await fetch('/api/scan/movies', { method: 'POST' });
       const data = await res.json();
       setMovies(data);
     } catch (e) {
-      showError("Erreur lors du scan des films");
+      showError("Erreur lors du scan");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchMovies(); }, []);
+  const handleGenerate = async (items: any[]) => {
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, type: 'Film' })
+      });
+      if (res.ok) {
+        showSuccess(`${items.length} film(s) ajouté(s)`);
+        navigate('/tasks');
+      }
+    } catch (e) {
+      showError("Erreur lors du lancement");
+    }
+  };
+
+  useEffect(() => {
+    fetch('/api/library/movies').then(res => res.json()).then(setMovies);
+  }, []);
+
+  const filteredMovies = movies.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <Layout>
@@ -36,10 +60,20 @@ const Movies = () => {
           <h2 className="text-3xl font-bold text-white">Bibliothèque Films</h2>
           <p className="text-slate-400 mt-1">Gérez vos films et générez des torrents.</p>
         </div>
-        <Button onClick={fetchMovies} disabled={loading} variant="outline" className="bg-white/5 border-white/10 text-white">
-          <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
-          Scanner
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={fetchMovies} disabled={loading} variant="outline" className="bg-white/5 border-white/10 text-white">
+            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+            Scanner
+          </Button>
+          <Button 
+            disabled={selected.length === 0}
+            onClick={() => handleGenerate(movies.filter(m => selected.includes(m.name)))}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            <Play className="w-4 h-4 mr-2" />
+            Lancer ({selected.length})
+          </Button>
+        </div>
       </div>
 
       <div className="bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-4 mb-6">
@@ -58,36 +92,25 @@ const Movies = () => {
         <Table>
           <TableHeader className="bg-white/5">
             <TableRow className="border-white/10">
+              <TableHead className="w-12"><Checkbox className="border-white/20" onCheckedChange={(checked) => setSelected(checked ? filteredMovies.map(m => m.name) : [])}/></TableHead>
               <TableHead className="text-slate-400">NOM</TableHead>
-              <TableHead className="text-slate-400">LANGUE</TableHead>
+              <TableHead className="text-slate-400">TAILLE</TableHead>
               <TableHead className="text-right text-slate-400">ACTION</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {movies.filter(m => m.name.toLowerCase().includes(search.toLowerCase())).map((movie, i) => (
+            {filteredMovies.map((movie, i) => (
               <TableRow key={i} className="border-white/5 hover:bg-white/5">
+                <TableCell><Checkbox className="border-white/20" checked={selected.includes(movie.name)} onCheckedChange={(checked) => setSelected(prev => checked ? [...prev, movie.name] : prev.filter(n => n !== movie.name))}/></TableCell>
                 <TableCell className="font-bold text-white">{movie.name}</TableCell>
-                <TableCell>
-                  <Select defaultValue="MULTI">
-                    <SelectTrigger className="w-32 bg-slate-950/50 border-white/10 text-xs h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-white/10 text-white">
-                      <SelectItem value="MULTI">MULTI</SelectItem>
-                      <SelectItem value="FRENCH">FRENCH</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableCell>
+                <TableCell><Badge variant="outline" className="border-white/10 text-slate-400">{movie.size}</Badge></TableCell>
                 <TableCell className="text-right">
-                  <Button size="sm" variant="ghost" className="text-amber-500">
+                  <Button size="sm" variant="ghost" className="text-amber-500 hover:bg-amber-500/10" onClick={() => handleGenerate([movie])}>
                     <Zap className="w-4 h-4" />
                   </Button>
                 </TableCell>
               </TableRow>
             ))}
-            {movies.length === 0 && !loading && (
-              <TableRow><TableCell colSpan={3} className="text-center py-10 text-slate-500">Aucun film trouvé dans le dossier source.</TableCell></TableRow>
-            )}
           </TableBody>
         </Table>
       </div>
@@ -95,5 +118,4 @@ const Movies = () => {
   );
 };
 
-import { cn } from "@/lib/utils";
 export default Movies;
