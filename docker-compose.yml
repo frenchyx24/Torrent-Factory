@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   torrent-factory:
-    build: .
+    image: ghcr.io/frenchyx24/torrent-factory:latest
     container_name: torrent-factory
     ports:
       - "5000:5000"
