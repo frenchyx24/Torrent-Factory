@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V38.PRO - Restauration Complète des Réglages
+Torrent Factory V38.PRO - Logique de Scan Réelle
 """
 
 import os
@@ -56,6 +56,21 @@ def log_system(msg, level="info"):
     log_seq += 1
     web_logs.append({"id": log_seq, "time": datetime.now().strftime("%H:%M:%S"), "msg": msg, "level": level})
 
+def get_dir_size(path):
+    total = 0
+    try:
+        for entry in os.scandir(path):
+            if entry.is_file(): total += entry.stat().st_size
+            elif entry.is_dir(): total += get_dir_size(entry.path)
+    except: pass
+    return total
+
+def format_size(size):
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size < 1024: return f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} PB"
+
 # ============================================================
 # ROUTES API
 # ============================================================
@@ -65,20 +80,42 @@ def api_config():
     if request.method == "POST":
         data = request.get_json() or {}
         CONFIG.update(data)
-        # Re-ajustement de la taille du deque si nécessaire
         if "logs_max" in data:
             global web_logs
-            new_logs = deque(web_logs, maxlen=int(data["logs_max"]))
-            web_logs = new_logs
+            web_logs = deque(web_logs, maxlen=int(data["logs_max"]))
         with open(CONFIG_FILE, "w") as f: json.dump(CONFIG, f)
         return jsonify({"success": True})
     return jsonify(CONFIG)
 
 @app.route("/api/scan/<type>", methods=["POST"])
 def api_scan(type):
-    root = CONFIG.get(f"{type}_root")
-    log_system(f"Scan du dossier {type}: {root}...", "info")
-    return jsonify(LIBRARY.get(type, []))
+    root_path = CONFIG.get(f"{type}_root")
+    log_system(f"Scan du dossier {type}: {root_path}...", "info")
+    
+    p = Path(root_path)
+    if not p.exists():
+        log_system(f"Dossier introuvable: {root_path}", "error")
+        return jsonify([])
+
+    items = []
+    try:
+        for entry in p.iterdir():
+            if entry.name.startswith('.'): continue
+            
+            size_raw = get_dir_size(entry) if entry.is_dir() else entry.stat().st_size
+            items.append({
+                "name": entry.name,
+                "size": format_size(size_raw),
+                "path": str(entry)
+            })
+    except Exception as e:
+        log_system(f"Erreur scan: {str(e)}", "error")
+
+    LIBRARY[type] = sorted(items, key=lambda x: x['name'])
+    with open(LIBRARY_FILE, "w") as f: json.dump(LIBRARY, f)
+    
+    log_system(f"Scan terminé: {len(items)} éléments trouvés", "success")
+    return jsonify(LIBRARY[type])
 
 @app.route("/api/tasks/stop/<int:task_id>", methods=["POST"])
 def stop_task(task_id):
@@ -108,7 +145,7 @@ def index():
     return PAGE_HTML
 
 # ============================================================
-# L'INTERFACE V38.PRO CORRIGÉE
+# L'INTERFACE V38.PRO
 # ============================================================
 
 PAGE_HTML = r"""<!DOCTYPE html>
@@ -369,7 +406,7 @@ PAGE_HTML = r"""<!DOCTYPE html>
         }
 
         async function scan(type) {
-            await fetch('/api/scan/' + type, {method: 'POST'});
+            const res = await fetch('/api/scan/' + type, {method: 'POST'});
             loadLibrary(type);
         }
 
@@ -386,7 +423,7 @@ PAGE_HTML = r"""<!DOCTYPE html>
                 container.innerHTML = data.length ? data.map(t => `
                     <div class="glass-card mb-3 border-start border-4 border-${t.status === 'running' ? 'primary' : 'warning'}">
                         <div class="d-flex justify-content-between mb-2">
-                            <div><div class="fw-bold">${t.name}</div><small class="text-mute">${t.current}</small></div>
+                            <div><div class="fw-bold text-white">${t.name}</div><small class="text-mute">${t.current}</small></div>
                             ${t.status === 'running' ? `<button onclick="stopTask(${t.id})" class="btn btn-sm btn-danger">STOP</button>` : ''}
                         </div>
                         <div class="progress"><div class="progress-bar" style="width:${t.progress}%"></div></div>
@@ -397,11 +434,11 @@ PAGE_HTML = r"""<!DOCTYPE html>
                 container.innerHTML = data.length ? data.map(item => `
                     <tr>
                         <td><input type="checkbox" class="form-check-input"></td>
-                        <td>${item.name}</td>
-                        <td><select class="form-select form-select-sm w-auto"><option>MULTI</option></select></td>
+                        <td><span class="fw-bold text-white">${item.name}</span> <span class="badge bg-white/5 text-mute ms-2" style="font-size: 0.65rem;">${item.size}</span></td>
+                        <td><select class="form-select form-select-sm w-auto"><option>MULTI</option><option>FRENCH</option></select></td>
                         ${type === 'series' ? '<td><select class="form-select form-select-sm w-auto"><option>Pack</option><option>Saison</option></select></td>' : ''}
                         <td class="text-end"><button class="btn btn-sm btn-link text-warning"><i class="bi bi-zap-fill"></i></button></td>
-                    </tr>`).join('') : '<tr><td colspan="5" class="text-center py-5">Dossier vide.</td></tr>';
+                    </tr>`).join('') : '<tr><td colspan="5" class="text-center py-5 text-mute">Dossier vide ou introuvable. Cliquez sur Scanner.</td></tr>';
             }
         }
 
@@ -409,7 +446,7 @@ PAGE_HTML = r"""<!DOCTYPE html>
             const res = await fetch('/api/logs');
             const logs = await res.json();
             const out = document.getElementById('log-output');
-            out.innerHTML = logs.map(l => `<div class="log-line"><span class="log-time">[${l.time}]</span><span>${l.msg}</span></div>`).join('');
+            out.innerHTML = logs.map(l => `<div class="log-line"><span class="log-time">[${l.time}]</span><span class="log-${l.level}">${l.msg}</span></div>`).join('');
             out.scrollTop = out.scrollHeight;
         }
 
