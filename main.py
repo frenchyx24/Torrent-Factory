@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V38.PRO - Restauration Complète & Correction Design
+Torrent Factory V38.PRO - Restauration Complète des Réglages
 """
 
 import os
@@ -47,7 +47,6 @@ def load_json(path, default):
     except: return default.copy()
 
 CONFIG = load_json(CONFIG_FILE, DEFAULT_CONFIG)
-# Initialisation propre sans données de test
 LIBRARY = load_json(LIBRARY_FILE, {"series": [], "movies": [], "torrents": [], "tasks": []})
 web_logs = deque(maxlen=CONFIG.get("logs_max", 5000))
 log_seq = 0
@@ -64,7 +63,13 @@ def log_system(msg, level="info"):
 @app.route("/api/config", methods=["GET", "POST"])
 def api_config():
     if request.method == "POST":
-        CONFIG.update(request.get_json() or {})
+        data = request.get_json() or {}
+        CONFIG.update(data)
+        # Re-ajustement de la taille du deque si nécessaire
+        if "logs_max" in data:
+            global web_logs
+            new_logs = deque(web_logs, maxlen=int(data["logs_max"]))
+            web_logs = new_logs
         with open(CONFIG_FILE, "w") as f: json.dump(CONFIG, f)
         return jsonify({"success": True})
     return jsonify(CONFIG)
@@ -73,7 +78,6 @@ def api_config():
 def api_scan(type):
     root = CONFIG.get(f"{type}_root")
     log_system(f"Scan du dossier {type}: {root}...", "info")
-    # Logique de scan réelle ici...
     return jsonify(LIBRARY.get(type, []))
 
 @app.route("/api/tasks/stop/<int:task_id>", methods=["POST"])
@@ -81,14 +85,14 @@ def stop_task(task_id):
     for task in LIBRARY["tasks"]:
         if task.get("id") == task_id:
             task["status"] = "cancelled"
-            log_system(f"Tâche {task['name']} annulée par l'utilisateur", "warning")
+            log_system(f"Tâche {task['name']} annulée", "warning")
             break
     return jsonify({"success": True})
 
 @app.route("/api/tasks/clean", methods=["POST"])
 def clean_tasks():
     LIBRARY["tasks"] = [t for t in LIBRARY["tasks"] if t.get("status") == "running"]
-    log_system("Nettoyage des tâches terminées", "info")
+    log_system("Nettoyage des activités terminées", "info")
     return jsonify({"success": True})
 
 @app.route("/api/library/<type>")
@@ -199,12 +203,10 @@ PAGE_HTML = r"""<!DOCTYPE html>
             margin-bottom: 25px;
         }
 
-        /* FIX DU BLANC MOCHE */
         .table { color: var(--text-main) !important; background: transparent !important; margin: 0; }
         .table thead th { border-bottom: 1px solid var(--glass-border) !important; color: var(--text-mute) !important; background: transparent !important; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
         .table td { border-bottom: 1px solid rgba(255,255,255,0.03) !important; vertical-align: middle; padding: 15px 10px; background: transparent !important; color: white !important; }
-        .table tr:hover { background: rgba(255,255,255,0.02) !important; }
-
+        
         .btn-accent { background: var(--accent); border: none; color: white; padding: 10px 20px; border-radius: 10px; font-weight: 600; }
         .btn-accent:hover { background: #4f46e5; transform: translateY(-1px); }
 
@@ -237,14 +239,8 @@ PAGE_HTML = r"""<!DOCTYPE html>
         <!-- SERIES -->
         <div id="view-series" class="view-section">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <h2>Bibliothèque Séries</h2>
-                    <p class="text-mute small">Gérez vos séries et générez des torrents en masse.</p>
-                </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-outline-light" onclick="scan('series')"><i class="bi bi-arrow-clockwise me-2"></i>Scanner</button>
-                    <button class="btn btn-accent"><i class="bi bi-layers me-2"></i>Tout Générer</button>
-                </div>
+                <div><h2>Bibliothèque Séries</h2><p class="text-mute small">Scan et génération en masse.</p></div>
+                <button class="btn btn-accent" onclick="scan('series')"><i class="bi bi-arrow-clockwise me-2"></i>Scanner</button>
             </div>
             <div class="glass-card p-0 overflow-hidden">
                 <table class="table">
@@ -270,10 +266,7 @@ PAGE_HTML = r"""<!DOCTYPE html>
 
         <!-- TORRENTS -->
         <div id="view-torrents" class="view-section" style="display:none">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Torrents Créés</h2>
-                <button class="btn btn-outline-light btn-sm" onclick="loadLibrary('torrents')"><i class="bi bi-arrow-clockwise"></i></button>
-            </div>
+            <div class="d-flex justify-content-between align-items-center mb-4"><h2>Torrents Créés</h2></div>
             <div class="glass-card p-0 overflow-hidden">
                 <table class="table">
                     <thead><tr><th>Fichier</th><th>Type</th><th>Date</th><th class="text-end">Actions</th></tr></thead>
@@ -293,11 +286,8 @@ PAGE_HTML = r"""<!DOCTYPE html>
 
         <!-- LOGS -->
         <div id="view-logs" class="view-section" style="display:none">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Logs Système</h2>
-                <button class="btn btn-outline-light btn-sm" onclick="fetchLogs()">Actualiser</button>
-            </div>
-            <div class="glass-card bg-black shadow-inner" style="height: 500px; overflow-y: auto;" id="log-output"></div>
+            <div class="mb-4"><h2>Logs Système</h2></div>
+            <div class="glass-card bg-black p-3" style="height: 500px; overflow-y: auto;" id="log-output"></div>
         </div>
 
         <!-- SETTINGS -->
@@ -305,37 +295,36 @@ PAGE_HTML = r"""<!DOCTYPE html>
             <div class="mb-4"><h2>Configuration Globale</h2></div>
             <div class="row g-4">
                 <div class="col-md-6">
-                    <div class="glass-card">
+                    <div class="glass-card h-100">
                         <h5 class="mb-3 text-accent"><i class="bi bi-folder"></i> Chemins</h5>
-                        <div class="mb-3">
-                            <label class="form-label text-mute small">Dossier Séries (Source)</label>
-                            <input type="text" id="cfg-series-root" class="form-control">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label text-mute small">Dossier Films (Source)</label>
-                            <input type="text" id="cfg-movies-root" class="form-control">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label text-mute small">Destination Torrents</label>
-                            <input type="text" id="cfg-out" class="form-control">
+                        <div class="row g-3">
+                            <div class="col-12"><label class="form-label text-mute small">Séries (Source)</label><input type="text" id="cfg-series-root" class="form-control"></div>
+                            <div class="col-12"><label class="form-label text-mute small">Séries (Destination Torrents)</label><input type="text" id="cfg-series-out" class="form-control"></div>
+                            <hr class="opacity-10 my-1">
+                            <div class="col-12"><label class="form-label text-mute small">Films (Source)</label><input type="text" id="cfg-movies-root" class="form-control"></div>
+                            <div class="col-12"><label class="form-label text-mute small">Films (Destination Torrents)</label><input type="text" id="cfg-movies-out" class="form-control"></div>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <div class="glass-card">
-                        <h5 class="mb-3 text-accent"><i class="bi bi-globe"></i> Réseau & Options</h5>
+                    <div class="glass-card h-100">
+                        <h5 class="mb-3 text-accent"><i class="bi bi-gear"></i> Options & Réseau</h5>
                         <div class="mb-3">
                             <label class="form-label text-mute small">URL du Tracker</label>
-                            <input type="text" id="cfg-tracker" class="form-control" placeholder="http://tracker.com/announce">
+                            <input type="text" id="cfg-tracker" class="form-control" placeholder="http://...">
                         </div>
-                        <div class="form-check form-switch mt-4">
-                            <input class="form-check-input" type="checkbox" id="cfg-private">
+                        <div class="mb-3">
+                            <label class="form-label text-mute small">Historique Logs (Max lignes)</label>
+                            <input type="number" id="cfg-logs-max" class="form-control">
+                        </div>
+                        <div class="form-check form-switch mt-4 p-3 bg-white/5 rounded-3">
+                            <input class="form-check-input ms-0 me-3" type="checkbox" id="cfg-private">
                             <label class="form-check-label">Mode Privé (Flag Private)</label>
                         </div>
                     </div>
                 </div>
             </div>
-            <button class="btn btn-accent w-100 py-3 mt-2" onclick="saveConfig()"><i class="bi bi-save me-2"></i>SAUVEGARDER LES RÉGLAGES</button>
+            <button class="btn btn-accent w-100 py-3 mt-4" onclick="saveConfig()"><i class="bi bi-save me-2"></i>ENREGISTRER LA CONFIGURATION</button>
         </div>
     </div>
 
@@ -349,26 +338,43 @@ PAGE_HTML = r"""<!DOCTYPE html>
             if(['series','movies','torrents','tasks'].includes(viewId)) loadLibrary(viewId);
         }
 
+        async function loadConfig() {
+            const res = await fetch('/api/config');
+            const cfg = await res.json();
+            document.getElementById('cfg-series-root').value = cfg.series_root;
+            document.getElementById('cfg-series-out').value = cfg.series_out;
+            document.getElementById('cfg-movies-root').value = cfg.movies_root;
+            document.getElementById('cfg-movies-out').value = cfg.movies_out;
+            document.getElementById('cfg-tracker').value = cfg.tracker_url;
+            document.getElementById('cfg-logs-max').value = cfg.logs_max;
+            document.getElementById('cfg-private').checked = cfg.private;
+        }
+
+        async function saveConfig() {
+            const data = {
+                series_root: document.getElementById('cfg-series-root').value,
+                series_out: document.getElementById('cfg-series-out').value,
+                movies_root: document.getElementById('cfg-movies-root').value,
+                movies_out: document.getElementById('cfg-movies-out').value,
+                tracker_url: document.getElementById('cfg-tracker').value,
+                logs_max: parseInt(document.getElementById('cfg-logs-max').value),
+                private: document.getElementById('cfg-private').checked
+            };
+            await fetch('/api/config', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            alert('Config sauvegardée !');
+        }
+
         async function scan(type) {
-            const btn = event.target;
-            const original = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Scan...';
             await fetch('/api/scan/' + type, {method: 'POST'});
-            await loadLibrary(type);
-            btn.disabled = false;
-            btn.innerHTML = original;
+            loadLibrary(type);
         }
 
-        async function cleanTasks() {
-            await fetch('/api/tasks/clean', {method: 'POST'});
-            loadLibrary('tasks');
-        }
-
-        async function stopTask(id) {
-            await fetch('/api/tasks/stop/' + id, {method: 'POST'});
-            loadLibrary('tasks');
-        }
+        async function cleanTasks() { await fetch('/api/tasks/clean', {method: 'POST'}); loadLibrary('tasks'); }
+        async function stopTask(id) { await fetch('/api/tasks/stop/' + id, {method: 'POST'}); loadLibrary('tasks'); }
 
         async function loadLibrary(type) {
             const res = await fetch('/api/library/' + type);
@@ -378,72 +384,24 @@ PAGE_HTML = r"""<!DOCTYPE html>
 
             if(type === 'tasks') {
                 container.innerHTML = data.length ? data.map(t => `
-                    <div class="glass-card mb-3 border-start border-4 border-${t.status === 'running' ? 'primary' : t.status === 'cancelled' ? 'warning' : 'success'}">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div>
-                                <div class="fw-bold text-white">${t.name} <span class="text-mute small ms-2">${t.current}</span></div>
-                                <div class="text-mute x-small" style="font-size: 0.7rem;">${t.detail || 'Traitement...'}</div>
-                            </div>
-                            <div class="d-flex align-items-center gap-3">
-                                <div class="text-accent fw-bold small">${t.eta}</div>
-                                ${t.status === 'running' ? `<button onclick="stopTask(${t.id})" class="btn btn-sm btn-danger py-0 px-2" style="font-size:0.6rem;">STOP</button>` : ''}
-                            </div>
+                    <div class="glass-card mb-3 border-start border-4 border-${t.status === 'running' ? 'primary' : 'warning'}">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div><div class="fw-bold">${t.name}</div><small class="text-mute">${t.current}</small></div>
+                            ${t.status === 'running' ? `<button onclick="stopTask(${t.id})" class="btn btn-sm btn-danger">STOP</button>` : ''}
                         </div>
-                        <div class="progress mb-1" style="height: 6px;"><div class="progress-bar" style="width: ${t.progress}%"></div></div>
-                        <div class="d-flex justify-content-between text-mute" style="font-size: 0.6rem;">
-                            <span>Progression globale</span>
-                            <span>${t.progress}%</span>
-                        </div>
-                    </div>
-                `).join('') : '<div class="text-center py-5 text-mute">Aucune activité en cours.</div>';
-                return;
-            }
-
-            if(type === 'torrents') {
-                container.innerHTML = data.length ? data.map(t => `
-                    <tr>
-                        <td><i class="bi bi-file-earmark-text me-2 text-accent"></i>${t.name}</td>
-                        <td><span class="badge bg-secondary opacity-50 small">${t.type}</span></td>
-                        <td class="text-mute small">${t.date}</td>
-                        <td class="text-end"><button class="btn btn-sm btn-link text-mute p-0"><i class="bi bi-download"></i></button></td>
-                    </tr>
-                `).join('') : '<tr><td colspan="4" class="text-center py-5 text-mute">Aucun torrent créé pour le moment.</td></tr>';
-                return;
-            }
-
-            if(type === 'series') {
-                container.innerHTML = data.length ? data.map(item => `
-                    <tr>
-                        <td><input type="checkbox" class="form-check-input"></td>
-                        <td><span class="fw-bold text-white">${item.name}</span> <span class="badge bg-indigo-subtle text-indigo ms-2" style="font-size:0.6rem;">${item.size}</span></td>
-                        <td>
-                            <select class="form-select form-select-sm w-auto py-0 px-2" style="font-size: 0.7rem;">
-                                <option>MULTI</option><option>FRENCH</option><option>VOSTFR</option>
-                            </select>
-                        </td>
-                        <td>
-                            <select class="form-select form-select-sm w-auto py-0 px-2" style="font-size: 0.7rem;">
-                                <option>Pack</option><option>Saison</option><option>EP</option>
-                            </select>
-                        </td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-link text-warning p-0"><i class="bi bi-zap-fill"></i></button>
-                        </td>
-                    </tr>
-                `).join('') : '<tr><td colspan="5" class="text-center py-5 text-mute">Dossier vide. Cliquez sur Scanner.</td></tr>';
+                        <div class="progress"><div class="progress-bar" style="width:${t.progress}%"></div></div>
+                    </div>`).join('') : '<div class="text-center py-5 text-mute">Aucune activité.</div>';
+            } else if(type === 'torrents') {
+                container.innerHTML = data.length ? data.map(t => `<tr><td>${t.name}</td><td>${t.type}</td><td>${t.date}</td><td class="text-end"><i class="bi bi-download"></i></td></tr>`).join('') : '<tr><td colspan="4" class="text-center py-5">Vide.</td></tr>';
             } else {
                 container.innerHTML = data.length ? data.map(item => `
                     <tr>
-                        <td><span class="fw-bold text-white">${item.name}</span></td>
-                        <td><span class="badge bg-indigo-subtle text-indigo">${item.size}</span></td>
-                        <td>
-                            <select class="form-select form-select-sm w-auto py-0 px-2" style="font-size: 0.7rem;">
-                                <option>MULTI</option><option>FRENCH</option>
-                            </select>
-                        </td>
-                        <td class="text-end"><button class="btn btn-sm btn-link text-warning p-0"><i class="bi bi-zap-fill"></i></button></td>
-                    </tr>
-                `).join('') : '<tr><td colspan="4" class="text-center py-5 text-mute">Dossier vide. Cliquez sur Scanner.</td></tr>';
+                        <td><input type="checkbox" class="form-check-input"></td>
+                        <td>${item.name}</td>
+                        <td><select class="form-select form-select-sm w-auto"><option>MULTI</option></select></td>
+                        ${type === 'series' ? '<td><select class="form-select form-select-sm w-auto"><option>Pack</option><option>Saison</option></select></td>' : ''}
+                        <td class="text-end"><button class="btn btn-sm btn-link text-warning"><i class="bi bi-zap-fill"></i></button></td>
+                    </tr>`).join('') : '<tr><td colspan="5" class="text-center py-5">Dossier vide.</td></tr>';
             }
         }
 
@@ -451,40 +409,11 @@ PAGE_HTML = r"""<!DOCTYPE html>
             const res = await fetch('/api/logs');
             const logs = await res.json();
             const out = document.getElementById('log-output');
-            out.innerHTML = logs.map(l => `<div class="log-line p-1 px-3"><span class="log-time">[${l.time}]</span><span class="log-${l.level}">${l.msg}</span></div>`).join('');
+            out.innerHTML = logs.map(l => `<div class="log-line"><span class="log-time">[${l.time}]</span><span>${l.msg}</span></div>`).join('');
             out.scrollTop = out.scrollHeight;
         }
 
-        async function loadConfig() {
-            const res = await fetch('/api/config');
-            const cfg = await res.json();
-            document.getElementById('cfg-tracker').value = cfg.tracker_url || '';
-            document.getElementById('cfg-series-root').value = cfg.series_root || '';
-            document.getElementById('cfg-movies-root').value = cfg.movies_root || '';
-            document.getElementById('cfg-out').value = cfg.series_out || '';
-            document.getElementById('cfg-private').checked = cfg.private;
-        }
-
-        async function saveConfig() {
-            const data = {
-                tracker_url: document.getElementById('cfg-tracker').value,
-                series_root: document.getElementById('cfg-series-root').value,
-                movies_root: document.getElementById('cfg-movies-root').value,
-                series_out: document.getElementById('cfg-out').value,
-                private: document.getElementById('cfg-private').checked
-            };
-            await fetch('/api/config', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
-            alert('Configuration enregistrée !');
-        }
-
-        window.onload = () => {
-            switchView('series');
-            loadConfig();
-        };
+        window.onload = () => { switchView('series'); loadConfig(); };
     </script>
 </body>
 </html>"""
