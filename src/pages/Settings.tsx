@@ -38,12 +38,13 @@ const Settings = () => {
     setPickerTarget(target);
     try {
       const driveRes = await fetch('/api/drives');
+      if (!driveRes.ok) throw new Error();
       const driveData = await driveRes.json();
       setDrives(driveData);
       browse(config[target] || "/");
       setPickerOpen(true);
     } catch (e) {
-      showError("Impossible de charger les lecteurs");
+      showError("Erreur : Impossible de contacter le serveur");
     }
   };
 
