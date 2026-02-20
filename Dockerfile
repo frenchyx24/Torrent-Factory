@@ -1,34 +1,28 @@
-# Étape 1 : Build du Frontend (React)
-FROM node:20 AS frontend-builder
+# Étape 1 : Construction du frontend React
+FROM node:20-slim AS build-frontend
 WORKDIR /app
 COPY package*.json ./
-# Utilisation de legacy-peer-deps pour éviter les conflits de versions React 19/Shadcn
-RUN npm install --legacy-peer-deps
+RUN npm install
 COPY . .
 RUN npm run build
 
-# Étape 2 : Runtime Backend (Python)
+# Étape 2 : Backend Python et exécution
 FROM python:3.11-slim
 WORKDIR /app
 
-# Installation des dépendances système pour FFmpeg et le réseau
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Installation des dépendances système (FFmpeg pour l'analyse audio)
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
-# Installation des packages Python requis par votre script V38
-RUN pip install --no-cache-dir flask py3createtorrent static-ffmpeg
+# Installation des dépendances Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copie de la logique backend
+# Copie du build frontend et du code backend
+COPY --from=build-frontend /app/dist ./dist
 COPY main.py .
 
-# Copie du build frontend depuis l'étape 1
-COPY --from=frontend-builder /app/dist ./dist
+# Création des dossiers de données
+RUN mkdir -p /config /data/series /data/movies /data/torrents/series /data/torrents/movies
 
-# Variables d'environnement pour votre script
-ENV TF_CONFIG_DIR=/config
 EXPOSE 5000
-
-# Lancement du serveur
 CMD ["python", "main.py"]
