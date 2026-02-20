@@ -1,8 +1,14 @@
 # Étape 1 : Construction du frontend React
 FROM node:20-slim AS build-frontend
 WORKDIR /app
+
+# Installation des outils de build si nécessaire
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
-RUN npm install
+# Utilisation de --legacy-peer-deps pour éviter les conflits React 18/19
+RUN npm install --legacy-peer-deps
+
 COPY . .
 RUN npm run build
 
