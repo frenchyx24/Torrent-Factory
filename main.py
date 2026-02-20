@@ -60,7 +60,8 @@ DEFAULT_CONFIG = {
     "show_size": True,
     "comment": "Created with TF",
     "torrent_timeout_sec": 7200,
-    "reset_tasks_on_start": True
+    "reset_tasks_on_start": True,
+    "exclude_files": ".plexmatch,theme.mp3"
 }
 
 def load_json(path, default):
@@ -188,6 +189,14 @@ def task_worker():
                     if CONFIG.get("private"): cmd.append("-P")
                     if CONFIG.get("piece_size"): cmd.extend(["-p", str(CONFIG["piece_size"])])
                     if CONFIG.get("comment"): cmd.extend(["-c", CONFIG["comment"]])
+                    
+                    # Ajout des exclusions
+                    exclude = CONFIG.get("exclude_files", "")
+                    if exclude:
+                        for pattern in exclude.split(','):
+                            if pattern.strip():
+                                cmd.extend(["-x", pattern.strip()])
+                    
                     cmd.append(str(source))
                     
                     try:

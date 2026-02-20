@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderOpen, Save, Globe, Loader2, ChevronRight, HardDrive, Clock, MessageSquare, Cpu } from 'lucide-react';
+import { FolderOpen, Save, Globe, Loader2, ChevronRight, HardDrive, Clock, MessageSquare, Cpu, XCircle } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -16,7 +16,8 @@ const Settings = () => {
     series_root: "", series_out: "", movies_root: "", movies_out: "",
     tracker_url: "", private: true, piece_size: 0, analyze_audio: true, 
     show_size: true, comment: "Created with TF", max_workers: 2, 
-    torrent_timeout_sec: 7200, reset_tasks_on_start: true
+    torrent_timeout_sec: 7200, reset_tasks_on_start: true,
+    exclude_files: ".plexmatch,theme.mp3"
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -110,6 +111,13 @@ const Settings = () => {
               <div className="space-y-2">
                 <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Timeout (sec)</Label>
                 <Input type="number" className="bg-slate-950/50 border-white/10 text-white" value={config.torrent_timeout_sec} onChange={(e) => setConfig({...config, torrent_timeout_sec: parseInt(e.target.value) || 7200})} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Fichiers à exclure (séparés par virgule)</Label>
+              <div className="relative">
+                <XCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Input className="pl-10 bg-slate-950/50 border-white/10 text-white" placeholder=".plexmatch, theme.mp3" value={config.exclude_files} onChange={(e) => setConfig({...config, exclude_files: e.target.value})} />
               </div>
             </div>
             <div className="space-y-2">
