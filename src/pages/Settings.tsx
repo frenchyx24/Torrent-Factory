@@ -14,13 +14,7 @@ import { translations, Language } from '@/lib/i18n';
 import { cn } from "@/lib/utils";
 
 const Settings = () => {
-  const [config, setConfig] = useState<any>({
-    series_root: "", series_out: "", movies_root: "", movies_out: "",
-    tracker_url: "", private: true, piece_size: 0, analyze_audio: true, 
-    show_size: true, comment: "Created with TF", max_workers: 2, 
-    torrent_timeout_sec: 7200, reset_tasks_on_start: true,
-    exclude_files: ".plexmatch,theme.mp3", language: "fr"
-  });
+  const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -34,15 +28,11 @@ const Settings = () => {
     fetch('/api/config')
       .then(res => res.json())
       .then(data => {
-        setConfig((prev: any) => ({ ...prev, ...data }));
+        setConfig(data);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
-
-  // Sécurisation de l'accès aux traductions
-  const currentLang = (config.language as Language) || 'fr';
-  const t = translations[currentLang]?.settings || translations['fr'].settings;
 
   const openPicker = async (target: string) => {
     setPickerTarget(target);
@@ -82,8 +72,7 @@ const Settings = () => {
         body: JSON.stringify(config)
       });
       if (res.ok) {
-        showSuccess(currentLang === 'fr' ? "Configuration enregistrée" : currentLang === 'en' ? "Configuration saved" : "Konfiguration gespeichert");
-        // Petit délai avant de recharger pour laisser le toast s'afficher
+        showSuccess(config.language === 'fr' ? "Configuration enregistrée" : "Configuration saved");
         setTimeout(() => window.location.reload(), 500);
       }
     } catch (e) { 
@@ -93,7 +82,10 @@ const Settings = () => {
     }
   };
 
-  if (loading) return <Layout><div className="flex items-center justify-center h-[60vh]"><Loader2 className="w-10 h-10 text-indigo-500 animate-spin" /></div></Layout>;
+  if (loading || !config) return <Layout><div className="flex items-center justify-center h-[60vh]"><Loader2 className="w-10 h-10 text-indigo-500 animate-spin" /></div></Layout>;
+
+  const currentLang = (config.language as Language) || 'fr';
+  const t = translations[currentLang]?.settings || translations['fr'].settings;
 
   return (
     <Layout>
@@ -103,35 +95,27 @@ const Settings = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Langue */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md lg:col-span-2">
           <CardHeader><CardTitle className="text-white flex items-center gap-2"><Languages className="w-5 h-5 text-indigo-400" />{t.sections.language}</CardTitle></CardHeader>
           <CardContent>
             <div className="flex gap-4">
-              {[
-                { code: 'fr', name: 'Français' },
-                { code: 'en', name: 'English' },
-                { code: 'de', name: 'Deutsch' }
-              ].map((l) => (
+              {['fr', 'en', 'de'].map((code) => (
                 <Button 
-                  key={l.code}
-                  variant={config.language === l.code ? "default" : "outline"}
+                  key={code}
+                  variant={config.language === code ? "default" : "outline"}
                   className={cn(
-                    "flex-1 py-6 border-white/10 transition-all",
-                    config.language === l.code 
-                      ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-500" 
-                      : "text-slate-400 hover:bg-white/5 border-white/5"
+                    "flex-1 py-6 border-white/10",
+                    config.language === code ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "text-slate-400 hover:bg-white/5"
                   )}
-                  onClick={() => setConfig({...config, language: l.code})}
+                  onClick={() => setConfig({...config, language: code})}
                 >
-                  {l.name}
+                  {code === 'fr' ? 'Français' : code === 'en' ? 'English' : 'Deutsch'}
                 </Button>
               ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Chemins */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md">
           <CardHeader><CardTitle className="text-white flex items-center gap-2"><FolderOpen className="w-5 h-5 text-indigo-400" />{t.sections.dirs}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -147,7 +131,6 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Paramètres Techniques */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md">
           <CardHeader><CardTitle className="text-white flex items-center gap-2"><Globe className="w-5 h-5 text-indigo-400" />{t.sections.torrent}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -167,19 +150,11 @@ const Settings = () => {
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{t.fields.exclude}</Label>
-              <div className="relative">
-                <XCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <Input className="pl-10 bg-slate-950/50 border-white/10 text-white" value={config.exclude_files} onChange={(e) => setConfig({...config, exclude_files: e.target.value})} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{t.fields.comment}</Label>
-              <Input className="bg-slate-950/50 border-white/10 text-white" value={config.comment} onChange={(e) => setConfig({...config, comment: e.target.value})} />
+              <Input className="bg-slate-950/50 border-white/10 text-white" value={config.exclude_files} onChange={(e) => setConfig({...config, exclude_files: e.target.value})} />
             </div>
           </CardContent>
         </Card>
 
-        {/* Options Système */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md lg:col-span-2">
           <CardHeader><CardTitle className="text-white flex items-center gap-2"><Cpu className="w-5 h-5 text-indigo-400" />{t.sections.system}</CardTitle></CardHeader>
           <CardContent>
@@ -190,21 +165,17 @@ const Settings = () => {
                 { label: t.options.size, key: "show_size" },
                 { label: t.options.reset, key: "reset_tasks_on_start" }
               ].map((opt) => (
-                <div key={opt.key} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-indigo-500/30 transition-all">
-                  <Label className="text-white font-semibold cursor-pointer" htmlFor={`switch-${opt.key}`}>{opt.label}</Label>
-                  <Switch id={`switch-${opt.key}`} checked={config[opt.key]} onCheckedChange={(val) => setConfig({...config, [opt.key]: val})} />
+                <div key={opt.key} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+                  <Label className="text-white font-semibold">{opt.label}</Label>
+                  <Switch checked={config[opt.key]} onCheckedChange={(val) => setConfig({...config, [opt.key]: val})} />
                 </div>
               ))}
-              <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
-                <Label className="text-white font-semibold">{t.fields.workers}</Label>
-                <Input type="number" className="w-20 bg-slate-950/50 border-white/10 text-white h-8" value={config.max_workers} onChange={(e) => setConfig({...config, max_workers: parseInt(e.target.value) || 1})} />
-              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Button onClick={handleSave} disabled={saving} className="w-full mt-8 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-xl shadow-indigo-500/20 transition-all hover:scale-[1.01]">
+      <Button onClick={handleSave} disabled={saving} className="w-full mt-8 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-xl shadow-indigo-500/20">
         {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />} {t.save}
       </Button>
 
