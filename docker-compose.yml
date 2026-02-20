@@ -2,13 +2,13 @@ version: '3.8'
 
 services:
   torrent-factory:
-    image: ghcr.io/frenchyx24/torrent-factory:latest
+    build: .
     container_name: torrent-factory
     ports:
       - "5000:5000"
     volumes:
       - ./config:/config
-      - /votre/chemin/series:/data/series
-      - /votre/chemin/movies:/data/movies
-      - /votre/chemin/torrents:/data/torrents
+      - ./data/series:/data/series
+      - ./data/movies:/data/movies
+      - ./data/torrents:/data/torrents
     restart: unless-stopped
