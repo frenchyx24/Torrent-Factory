@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.0 - Moteur Réel Intégré
+Torrent Factory V1.0.1 - Moteur Réel Intégré
 """
 
 import os
