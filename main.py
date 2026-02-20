@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.0.6 - Moteur de Production Avancé
+Torrent Factory V1.0.6 - Moteur de Production Réel
 """
 
 import os
@@ -10,6 +10,7 @@ import threading
 import time
 import uuid
 import re
+import hashlib
 from flask import Flask, request, jsonify, send_from_directory
 
 app = Flask(__name__, static_folder='dist')
@@ -23,9 +24,7 @@ DEFAULT_CONFIG = {
     "movies_out": "/data/torrents/movies",
     "tracker_url": "http://tracker.example.com/announce",
     "private": True,
-    "piece_size": 0,
-    "analyze_audio": True,
-    "show_size": True,
+    "piece_size": 524288, # 512 KB par défaut
     "comment": "Created with Torrent Factory v1.0.6",
     "language": "fr"
 }
@@ -37,13 +36,129 @@ def add_log(msg, level="info"):
     logs.append({"id": str(uuid.uuid4()), "time": time.strftime("%H:%M:%S"), "msg": msg, "level": level})
     if len(logs) > 100: logs.pop(0)
 
+def bencode(data):
+    """Encodeur Bencode minimaliste pour générer des fichiers .torrent valides."""
+    if isinstance(data, int):
+        return f"i{data}e".encode()
+    elif isinstance(data, str):
+        return f"{len(data)}:{data}".encode()
+    elif isinstance(data, bytes):
+        return f"{len(data)}:".encode() + data
+    elif isinstance(data, list):
+        return b"l" + b"".join([bencode(i) for i in data]) + b"e"
+    elif isinstance(data, dict):
+        res = b"d"
+        for k in sorted(data.keys()):
+            res += bencode(k) + bencode(data[k])
+        return res + b"e"
+    return b""
+
+def create_real_torrent(source_path, output_path, config, task_id):
+    """Génère un vrai fichier .torrent en hachant le contenu de source_path."""
+    try:
+        piece_length = config.get('piece_size', 524288)
+        if piece_length == 0: piece_length = 524288
+        
+        files_to_hash = []
+        if os.path.isfile(source_path):
+            files_to_hash.append({'path': source_path, 'size': os.path.getsize(source_path), 'rel': os.path.basename(source_path)})
+            total_size = os.path.getsize(source_path)
+        else:
+            total_size = 0
+            for root, _, files in os.walk(source_path):
+                for f in sorted(files):
+                    fp = os.path.join(root, f)
+                    sz = os.path.getsize(fp)
+                    files_to_hash.append({'path': fp, 'size': sz, 'rel': os.path.relpath(fp, os.path.dirname(source_path))})
+                    total_size += sz
+
+        pieces = b""
+        current_piece = b""
+        processed_size = 0
+        
+        for f_info in files_to_hash:
+            with open(f_info['path'], 'rb') as f:
+                while True:
+                    chunk = f.read(piece_length - len(current_piece))
+                    if not chunk: break
+                    current_piece += chunk
+                    processed_size += len(chunk)
+                    
+                    if len(current_piece) == piece_length:
+                        pieces += hashlib.sha1(current_piece).digest()
+                        current_piece = b""
+                        # Mise à jour de la progression
+                        for t in tasks:
+                            if t['id'] == task_id:
+                                t['progress_item'] = int((processed_size / total_size) * 100)
+                                t['progress_global'] = t['progress_item']
+
+        if current_piece:
+            pieces += hashlib.sha1(current_piece).digest()
+
+        # Construction de l'info dict
+        info = {
+            "name": os.path.basename(source_path),
+            "piece length": piece_length,
+            "pieces": pieces,
+            "private": 1 if config.get('private') else 0
+        }
+
+        if os.path.isfile(source_path):
+            info["length"] = total_size
+        else:
+            info["files"] = [{"length": f['size'], "path": f['rel'].split(os.sep)} for f in files_to_hash]
+
+        torrent = {
+            "announce": config.get('tracker_url'),
+            "comment": config.get('comment'),
+            "created by": "Torrent Factory v1.0.6",
+            "creation date": int(time.time()),
+            "info": info
+        }
+
+        with open(output_path, 'wb') as f:
+            f.write(bencode(torrent))
+            
+        return True
+    except Exception as e:
+        add_log(f"Erreur hachage : {str(e)}", "error")
+        return False
+
+def task_processor():
+    while True:
+        config = load_config()
+        for task in tasks:
+            if task['status'] == 'running' and task['progress_item'] == 0:
+                # On marque comme "en cours" pour éviter les doublons de thread
+                task['progress_item'] = 1 
+                
+                def run_hash(t=task, c=config):
+                    source = t['source_path']
+                    out_dir = c['series_out'] if t['type'] == 'séries' else c['movies_out']
+                    os.makedirs(out_dir, exist_ok=True)
+                    
+                    clean_name = t['name'].replace('/', '_').replace('\\', '_')
+                    file_name = f"{clean_name} [{t['lang_tag']}].torrent"
+                    dest = os.path.join(out_dir, file_name)
+                    
+                    if create_real_torrent(source, dest, c, t['id']):
+                        t['status'] = 'completed'
+                        t['progress_item'] = 100
+                        t['progress_global'] = 100
+                        add_log(f"Torrent réel généré : {file_name}", "success")
+                    else:
+                        t['status'] = 'cancelled'
+                
+                threading.Thread(target=run_hash).start()
+        time.sleep(1)
+
 def load_config():
     config = DEFAULT_CONFIG.copy()
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, 'r') as f:
-                user_config = json.load(f)
-                config.update(user_config)
+                config.update(json.load(f))
         except: pass
     return config
 
@@ -51,60 +166,6 @@ def save_config(config):
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
     with open(CONFIG_PATH, 'w') as f:
         json.dump(config, f, indent=4)
-
-def get_seasons(path):
-    """Détecte les dossiers de saisons (S01, Season 1, etc)."""
-    seasons = []
-    if not os.path.isdir(path): return seasons
-    for item in os.listdir(path):
-        if os.path.isdir(os.path.join(path, item)):
-            if re.search(r'S\d+|Season|Saison', item, re.I):
-                seasons.append(item)
-    return sorted(seasons)
-
-def get_episodes(path):
-    """Détecte les fichiers vidéo (épisodes)."""
-    episodes = []
-    for root, dirs, files in os.walk(path):
-        for f in files:
-            if f.lower().endswith(('.mkv', '.mp4', '.avi')):
-                episodes.append(f)
-    return sorted(episodes)
-
-def task_processor():
-    while True:
-        config = load_config()
-        for task in tasks:
-            if task['status'] == 'running':
-                if task['progress_item'] < 100:
-                    task['progress_item'] += 15
-                    task['progress_global'] = task['progress_item']
-                else:
-                    task['status'] = 'completed'
-                    try:
-                        out_dir = config['series_out'] if task['type'] == 'séries' else config['movies_out']
-                        os.makedirs(out_dir, exist_ok=True)
-                        
-                        # Nom de fichier propre
-                        clean_name = task['name'].replace('/', '_').replace('\\', '_')
-                        file_name = f"{clean_name} [{task['lang_tag']}].torrent"
-                        file_path = os.path.join(out_dir, file_name)
-                        
-                        # Simulation de contenu torrent structuré
-                        torrent_data = {
-                            "announce": config['tracker_url'],
-                            "comment": config['comment'],
-                            "created by": "Torrent Factory v1.0.6",
-                            "creation date": int(time.time()),
-                            "info": { "name": task['name'], "private": 1 if config['private'] else 0 }
-                        }
-                        with open(file_path, 'w') as f:
-                            json.dump(torrent_data, f, indent=2)
-                            
-                        add_log(f"Torrent généré : {file_name}", "success")
-                    except Exception as e:
-                        add_log(f"Erreur : {str(e)}", "error")
-        time.sleep(1)
 
 threading.Thread(target=task_processor, daemon=True).start()
 
@@ -123,57 +184,64 @@ def add_task():
     
     for t in data.get('tasks', []):
         mode = t.get('mode', 'complete')
-        root_path = os.path.join(config['series_root'] if task_type == 'séries' else config['movies_root'], t['name'])
+        base_path = config['series_root'] if task_type == 'séries' else config['movies_root']
+        root_path = os.path.join(base_path, t['name'])
         
         if task_type == 'séries':
             if mode == 'season':
-                seasons = get_seasons(root_path)
-                for s in seasons:
-                    tasks.append({
-                        "id": str(uuid.uuid4())[:8],
-                        "name": f"{t['name']} {s}",
-                        "type": task_type,
-                        "lang_tag": t.get('lang_tag', 'MULTI'),
-                        "status": "running",
-                        "progress_item": 0,
-                        "current_item_name": f"Traitement {s}",
-                        "created_at": time.strftime("%H:%M")
-                    })
+                for s in sorted(os.listdir(root_path)):
+                    sp = os.path.join(root_path, s)
+                    if os.path.isdir(sp) and re.search(r'S\d+|Season|Saison', s, re.I):
+                        tasks.append({
+                            "id": str(uuid.uuid4())[:8],
+                            "name": f"{t['name']} {s}",
+                            "source_path": sp,
+                            "type": task_type,
+                            "lang_tag": t.get('lang_tag', 'MULTI'),
+                            "status": "running",
+                            "progress_item": 0,
+                            "current_item_name": f"Hachage {s}",
+                            "created_at": time.strftime("%H:%M")
+                        })
             elif mode == 'episode':
-                episodes = get_episodes(root_path)
-                for i, ep in enumerate(episodes):
-                    tasks.append({
-                        "id": str(uuid.uuid4())[:8],
-                        "name": f"{t['name']} - {ep}",
-                        "type": task_type,
-                        "lang_tag": t.get('lang_tag', 'MULTI'),
-                        "status": "running",
-                        "progress_item": 0,
-                        "current_item_name": f"Épisode {i+1}/{len(episodes)}",
-                        "created_at": time.strftime("%H:%M")
-                    })
+                for root, _, files in os.walk(root_path):
+                    for f in sorted(files):
+                        if f.lower().endswith(('.mkv', '.mp4', '.avi')):
+                            tasks.append({
+                                "id": str(uuid.uuid4())[:8],
+                                "name": f"{t['name']} - {f}",
+                                "source_path": os.path.join(root, f),
+                                "type": task_type,
+                                "lang_tag": t.get('lang_tag', 'MULTI'),
+                                "status": "running",
+                                "progress_item": 0,
+                                "current_item_name": f"Hachage {f[:30]}...",
+                                "created_at": time.strftime("%H:%M")
+                            })
             else: # Pack Complet
-                seasons = get_seasons(root_path)
-                season_tag = f"S{seasons[0][1:]}-S{seasons[-1][1:]}" if len(seasons) > 1 else seasons[0] if seasons else ""
+                seasons = [s for s in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, s)) and re.search(r'S\d+|Season|Saison', s, re.I)]
+                tag = f"S{seasons[0][1:]}-S{seasons[-1][1:]}" if len(seasons) > 1 else seasons[0] if seasons else ""
                 tasks.append({
                     "id": str(uuid.uuid4())[:8],
-                    "name": f"{t['name']} {season_tag}".strip(),
+                    "name": f"{t['name']} {tag}".strip(),
+                    "source_path": root_path,
                     "type": task_type,
                     "lang_tag": t.get('lang_tag', 'MULTI'),
                     "status": "running",
                     "progress_item": 0,
-                    "current_item_name": "Analyse du pack complet",
+                    "current_item_name": f"Hachage Pack {tag}",
                     "created_at": time.strftime("%H:%M")
                 })
         else: # Films
             tasks.append({
                 "id": str(uuid.uuid4())[:8],
                 "name": t['name'],
+                "source_path": root_path,
                 "type": "films",
                 "lang_tag": t.get('lang_tag', 'MULTI'),
                 "status": "running",
                 "progress_item": 0,
-                "current_item_name": "Hachage du fichier",
+                "current_item_name": "Hachage du film",
                 "created_at": time.strftime("%H:%M")
             })
             
