@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.0.3 - Moteur de Production
+Torrent Factory V1.0.4 - Moteur de Production
 """
 
 import os
@@ -70,12 +70,10 @@ def task_processor():
         for task in tasks:
             if task['status'] == 'running':
                 if task['progress_item'] < 100:
-                    # Progression plus lente pour plus de réalisme
                     task['progress_item'] += 5
                     task['progress_global'] = task['progress_item']
                 else:
                     task['status'] = 'completed'
-                    # Création réelle du fichier .torrent (factice pour la démo)
                     try:
                         out_dir = config['series_out'] if task['type'] == 'séries' else config['movies_out']
                         os.makedirs(out_dir, exist_ok=True)
@@ -207,5 +205,5 @@ def serve(path):
         return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
-    add_log("Démarrage de Torrent Factory V1.0.3", "info")
+    add_log("Démarrage de Torrent Factory V1.0.4", "info")
     app.run(host='0.0.0.0', port=5000)
