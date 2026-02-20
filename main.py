@@ -259,6 +259,16 @@ def api_scan(lib_type):
 def api_library(lib_type):
     return jsonify(LIBRARY_CACHE.get(lib_type, []))
 
+@app.route("/api/torrents/list")
+def api_torrents_list():
+    res = {"series": [], "movies": []}
+    for key in ["series", "movies"]:
+        path = Path(CONFIG.get(f"{key}_out"))
+        if path.exists():
+            for f in path.glob("*.torrent"):
+                res[key].append(f.name)
+    return jsonify(res)
+
 @app.route("/api/tasks/add", methods=["POST"])
 def api_tasks_add():
     data = request.get_json() or {}
