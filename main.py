@@ -57,7 +57,10 @@ DEFAULT_CONFIG = {
     "max_workers": 2,
     "logs_max": 5000,
     "analyze_audio": True,
-    "show_size": True
+    "show_size": True,
+    "comment": "Created with TF",
+    "torrent_timeout_sec": 7200,
+    "reset_tasks_on_start": True
 }
 
 def load_json(path, default):
@@ -179,30 +182,39 @@ def task_worker():
                     output_file = out_root / f"{safe_title}.torrent"
                     task["current_detail"] = f"[{cmd_idx+1}/{len(commands)}] {safe_title}"
                     
-                    # Appel réel à py3createtorrent
+                    # Appel réel à py3createtorrent avec toutes les options
                     cmd = [sys.executable, "-m", "py3createtorrent", "-o", str(output_file)]
                     if CONFIG.get("tracker_url"): cmd.extend(["-t", CONFIG["tracker_url"]])
                     if CONFIG.get("private"): cmd.append("-P")
                     if CONFIG.get("piece_size"): cmd.extend(["-p", str(CONFIG["piece_size"])])
+                    if CONFIG.get("comment"): cmd.extend(["-c", CONFIG["comment"]])
                     cmd.append(str(source))
                     
                     try:
+                        # Utilisation du timeout configuré
+                        timeout = CONFIG.get("torrent_timeout_sec", 7200)
                         process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        
+                        start_time = time.time()
                         while process.poll() is None:
-                            if stop_events.get(task_id):
+                            if stop_events.get(task_id) or (time.time() - start_time > timeout):
                                 process.terminate(); break
                             task["progress_item"] = min(task.get("progress_item", 0) + 5, 95)
                             time.sleep(0.5)
                         task["progress_item"] = 100
+                        log_system(f"Torrent créé: {safe_title}", "success")
                     except Exception as e:
-                        log_system(f"Erreur création: {e}", "error")
+                        log_system(f"Erreur création {safe_title}: {e}", "error")
 
             task["status"] = "cancelled" if stop_events.get(task_id) else "completed"
             task["progress_global"] = 100
         except Empty: continue
         except Exception as e: log_system(f"Worker Error: {e}", "error")
 
-threading.Thread(target=task_worker, daemon=True).start()
+# Lancement des workers selon la config
+num_workers = CONFIG.get("max_workers", 2)
+for _ in range(num_workers):
+    threading.Thread(target=task_worker, daemon=True).start()
 
 # ============================================================
 # API ROUTES
@@ -300,4 +312,7 @@ def serve(path):
     return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == "__main__":
+    # Reset des tâches si configuré
+    if CONFIG.get("reset_tasks_on_start"):
+        active_tasks = []
     app.run(host="0.0.0.0", port=5000, threaded=True)

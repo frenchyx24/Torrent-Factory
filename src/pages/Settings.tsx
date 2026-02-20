@@ -7,19 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderOpen, Save, Globe, Loader2, ChevronRight, HardDrive } from 'lucide-react';
+import { FolderOpen, Save, Globe, Loader2, ChevronRight, HardDrive, Clock, MessageSquare, Cpu } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const Settings = () => {
   const [config, setConfig] = useState({
     series_root: "", series_out: "", movies_root: "", movies_out: "",
-    tracker_url: "", private: true, piece_size: 0, analyze_audio: true, show_size: true
+    tracker_url: "", private: true, piece_size: 0, analyze_audio: true, 
+    show_size: true, comment: "Created with TF", max_workers: 2, 
+    torrent_timeout_sec: 7200, reset_tasks_on_start: true
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  // File Picker State
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState("");
   const [currentPath, setCurrentPath] = useState("/");
@@ -73,50 +74,84 @@ const Settings = () => {
     <Layout>
       <div className="mb-8">
         <h2 className="text-3xl font-bold text-white">Configuration V38</h2>
-        <p className="text-slate-400 mt-1">Moteur de création réel avec support FFprobe.</p>
+        <p className="text-slate-400 mt-1">Moteur de création réel avec toutes les options activées.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Chemins */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2"><FolderOpen className="w-5 h-5 text-indigo-400" />Chemins</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-white flex items-center gap-2"><FolderOpen className="w-5 h-5 text-indigo-400" />Répertoires</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             {['series_root', 'series_out', 'movies_root', 'movies_out'].map((key) => (
               <div key={key} className="space-y-2">
-                <Label className="text-xs text-indigo-400 uppercase font-bold">{key.replace('_', ' ')}</Label>
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{key.replace('_', ' ')}</Label>
                 <div className="flex gap-2">
-                  <Input className="bg-slate-950/50 border-white/10 text-white" value={config[key]} readOnly />
-                  <Button variant="outline" onClick={() => openPicker(key)} className="border-white/10 text-white hover:bg-white/5">Explorer</Button>
+                  <Input className="bg-slate-950/50 border-white/10 text-white text-xs" value={config[key]} readOnly />
+                  <Button variant="outline" size="sm" onClick={() => openPicker(key)} className="border-white/10 text-white hover:bg-white/5">Explorer</Button>
                 </div>
               </div>
             ))}
           </CardContent>
         </Card>
 
+        {/* Paramètres Techniques */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2"><Globe className="w-5 h-5 text-indigo-400" />Options</CardTitle></CardHeader>
-          <CardContent className="space-y-6">
+          <CardHeader><CardTitle className="text-white flex items-center gap-2"><Globe className="w-5 h-5 text-indigo-400" />Paramètres Torrent</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-xs text-indigo-400 uppercase font-bold">Tracker URL</Label>
-              <Input className="bg-slate-950/50 border-white/10 text-white" value={config.tracker_url} onChange={(e) => setConfig({...config, tracker_url: e.target.value})} />
+              <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Tracker URL</Label>
+              <Input className="bg-slate-950/50 border-white/10 text-white" placeholder="udp://tracker.opentrackr.org:1337/announce" value={config.tracker_url} onChange={(e) => setConfig({...config, tracker_url: e.target.value})} />
             </div>
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Taille Pièces (0=auto)</Label>
+                <Input type="number" className="bg-slate-950/50 border-white/10 text-white" value={config.piece_size} onChange={(e) => setConfig({...config, piece_size: parseInt(e.target.value) || 0})} />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Timeout (sec)</Label>
+                <Input type="number" className="bg-slate-950/50 border-white/10 text-white" value={config.torrent_timeout_sec} onChange={(e) => setConfig({...config, torrent_timeout_sec: parseInt(e.target.value) || 7200})} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Commentaire</Label>
+              <Input className="bg-slate-950/50 border-white/10 text-white" value={config.comment} onChange={(e) => setConfig({...config, comment: e.target.value})} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Options Système */}
+        <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md lg:col-span-2">
+          <CardHeader><CardTitle className="text-white flex items-center gap-2"><Cpu className="w-5 h-5 text-indigo-400" />Options & Performance</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { label: "Mode Privé", key: "private", desc: "Ajoute le flag -P" },
-                { label: "Analyse Audio", key: "analyze_audio", desc: "Utilise FFprobe pour les langues" },
-                { label: "Afficher Taille", key: "show_size", desc: "Scan plus lent mais précis" }
+                { label: "Mode Privé", key: "private", desc: "Ajoute le flag -P (Private)" },
+                { label: "Analyse Audio", key: "analyze_audio", desc: "Utilise FFprobe pour détecter les langues" },
+                { label: "Afficher Taille", key: "show_size", desc: "Scan récursif (plus lent)" },
+                { label: "Reset Tâches", key: "reset_tasks_on_start", desc: "Nettoie la liste au démarrage" }
               ].map((opt) => (
-                <div key={opt.key} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
-                  <div><Label className="text-white">{opt.label}</Label><p className="text-[10px] text-slate-500">{opt.desc}</p></div>
+                <div key={opt.key} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-indigo-500/30 transition-all">
+                  <div>
+                    <Label className="text-white font-semibold">{opt.label}</Label>
+                    <p className="text-[10px] text-slate-500">{opt.desc}</p>
+                  </div>
                   <Switch checked={config[opt.key]} onCheckedChange={(val) => setConfig({...config, [opt.key]: val})} />
                 </div>
               ))}
+              <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+                <div>
+                  <Label className="text-white font-semibold">Workers Max</Label>
+                  <p className="text-[10px] text-slate-500">Nombre de tâches simultanées</p>
+                </div>
+                <Input type="number" className="w-20 bg-slate-950/50 border-white/10 text-white h-8" value={config.max_workers} onChange={(e) => setConfig({...config, max_workers: parseInt(e.target.value) || 1})} />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Button onClick={handleSave} disabled={saving} className="w-full mt-8 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-xl shadow-indigo-500/20">
-        {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />} ENREGISTRER
+      <Button onClick={handleSave} disabled={saving} className="w-full mt-8 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-xl shadow-indigo-500/20 transition-all hover:scale-[1.01]">
+        {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />} ENREGISTRER LA CONFIGURATION
       </Button>
 
       {/* File Picker Dialog */}
