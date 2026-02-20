@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.0.1 - Moteur de Production
+Torrent Factory V1.0.2 - Moteur de Production
 """
 
 import os
@@ -167,5 +167,5 @@ def serve(path):
         return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
-    add_log("Démarrage de Torrent Factory V1.0.1", "info")
+    add_log("Démarrage de Torrent Factory V1.0.2", "info")
     app.run(host='0.0.0.0', port=5000)

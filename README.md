@@ -1,9 +1,9 @@
 <div align="center">
 
-# ⚡ Torrent Factory V1.0.1
+# ⚡ Torrent Factory V1.0.2
 ### *L'automatisation ultime pour votre bibliothèque média*
 
-[![Version](https://img.shields.io/badge/version-1.0.1-indigo?style=for-the-badge)](https://github.com/${GITHUB_REPOSITORY})
+[![Version](https://img.shields.io/badge/version-1.0.2-indigo?style=for-the-badge)](https://github.com/${GITHUB_REPOSITORY})
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=for-the-badge&logo=docker)](https://github.com/${GITHUB_REPOSITORY}/pkgs/container/torrent-factory)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
 
@@ -20,7 +20,7 @@
 - 🚀 **Interface Glassmorphism** : Une expérience utilisateur réactive bâtie avec React et Tailwind CSS.
 - 🔍 **Scan Intelligent** : Détection automatique des nouveaux contenus dans vos répertoires.
 - 🔊 **Analyse FFprobe** : Détection réelle des langues (MULTI, VFF, VOSTFR) via l'analyse des pistes audio.
-- ⚙️ **Moteur V1.0.1** : Gestion des tâches en arrière-plan avec file d'attente et workers multiples.
+- ⚙️ **Moteur V1.0.2** : Gestion des tâches en arrière-plan avec file d'attente et workers multiples.
 - 🛡️ **Exclusions Avancées** : Nettoyage automatique des torrents (ignore les `.plexmatch`, `theme.mp3`, etc.).
 - 🐳 **Docker Native** : Déploiement en une seule commande avec persistance des données.
 
