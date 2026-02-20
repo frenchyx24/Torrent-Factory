@@ -1,14 +1,13 @@
 {
   "name": "Torrent Factory",
-  "version": "1.0.7",
-  "description": "Générateur automatique de torrents avec interface web moderne",
+  "version": "1.0.8",
+  "description": "Générateur automatique de torrents ultra-robuste",
   "author": "Torrent Factory Team",
-  "release_date": "2024-05-22",
+  "release_date": "2024-05-23",
   "features": [
-    "Interface React ultra-rapide",
-    "Scan automatique de bibliothèque",
-    "Support multi-langues (torrent-tool)",
-    "Mode Docker natif",
-    "Gestion des tâches en arrière-plan"
+    "Moteur de hachage ultra-stable",
+    "Dockerfile auto-réparateur",
+    "Interface V1.0.8 synchronisée",
+    "Gestion des volumes persistants"
   ]
 }
