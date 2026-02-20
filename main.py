@@ -48,14 +48,11 @@ def add_log(msg, level="info"):
     if len(logs) > 100: logs.pop(0)
 
 def load_config():
-    """Charge la config en fusionnant les réglages existants avec les nouveaux défauts."""
     config = DEFAULT_CONFIG.copy()
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, 'r') as f:
                 user_config = json.load(f)
-                # On met à jour le dictionnaire par défaut avec les valeurs de l'utilisateur
-                # Cela permet de garder les modifs utilisateur tout en ajoutant les nouvelles clés de la v1.0.3
                 config.update(user_config)
         except Exception as e:
             add_log(f"Erreur lecture config: {str(e)}", "error")
@@ -67,15 +64,28 @@ def save_config(config):
         json.dump(config, f, indent=4)
 
 def task_processor():
-    """Simule la progression des tâches en arrière-plan."""
+    """Simule la progression des tâches et crée les fichiers à la fin."""
     while True:
+        config = load_config()
         for task in tasks:
             if task['status'] == 'running':
                 if task['progress_item'] < 100:
-                    task['progress_item'] += 10
+                    # Progression plus lente pour plus de réalisme
+                    task['progress_item'] += 5
                     task['progress_global'] = task['progress_item']
                 else:
                     task['status'] = 'completed'
+                    # Création réelle du fichier .torrent (factice pour la démo)
+                    try:
+                        out_dir = config['series_out'] if task['type'] == 'séries' else config['movies_out']
+                        os.makedirs(out_dir, exist_ok=True)
+                        file_path = os.path.join(out_dir, f"{task['name']}.torrent")
+                        with open(file_path, 'w') as f:
+                            f.write("dummy torrent content")
+                        add_log(f"Fichier créé : {task['name']}.torrent", "success")
+                    except Exception as e:
+                        add_log(f"Erreur création fichier : {str(e)}", "error")
+                    
                     add_log(f"Tâche terminée : {task['name']}", "success")
         time.sleep(1)
 
@@ -99,7 +109,7 @@ def list_series():
     if not os.path.exists(root): return jsonify([])
     items = []
     try:
-        for name in os.listdir(root):
+        for name in sorted(os.listdir(root)):
             if os.path.isdir(os.path.join(root, name)):
                 items.append({"name": name, "size": "1.2 GB", "detected_tag": "MULTI"})
     except: pass
@@ -112,7 +122,7 @@ def list_movies():
     if not os.path.exists(root): return jsonify([])
     items = []
     try:
-        for name in os.listdir(root):
+        for name in sorted(os.listdir(root)):
             full_path = os.path.join(root, name)
             if os.path.isfile(full_path) or os.path.isdir(full_path):
                 items.append({"name": name, "size": "4.5 GB", "detected_tag": "MULTI"})
@@ -133,10 +143,12 @@ def list_tasks():
 @app.route('/api/tasks/add', methods=['POST'])
 def add_task():
     data = request.json
+    task_type = data.get('type', 'séries')
     for t in data.get('tasks', []):
         new_task = {
             "id": str(uuid.uuid4())[:8],
             "name": t['name'],
+            "type": task_type,
             "status": "running",
             "progress_item": 0,
             "progress_global": 0,
@@ -144,7 +156,7 @@ def add_task():
             "created_at": time.strftime("%Y-%m-%d %H:%M")
         }
         tasks.append(new_task)
-        add_log(f"Démarrage de la création : {t['name']}", "info")
+        add_log(f"Démarrage de la création ({task_type}) : {t['name']}", "info")
     return jsonify({"status": "ok"})
 
 @app.route('/api/tasks/clear')
@@ -161,7 +173,7 @@ def list_torrents():
         path = config.get(key)
         if path and os.path.exists(path):
             try:
-                res[key.split('_')[0]] = [f for f in os.listdir(path) if f.endswith('.torrent')]
+                res[key.split('_')[0]] = sorted([f for f in os.listdir(path) if f.endswith('.torrent')])
             except: pass
     return jsonify(res)
 
@@ -178,7 +190,7 @@ def browse():
     path = request.args.get('path', '/')
     try:
         items = []
-        for name in os.listdir(path):
+        for name in sorted(os.listdir(path)):
             full_path = os.path.join(path, name)
             if os.path.isdir(full_path):
                 items.append({"name": name, "path": full_path})
