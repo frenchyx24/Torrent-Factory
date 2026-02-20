@@ -1,34 +1,23 @@
-# Étape 1 : Construction du frontend React
-FROM node:20-slim AS build-frontend
-WORKDIR /app
-
-# Installation des outils de build si nécessaire
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-
-COPY package*.json ./
-# Utilisation de --legacy-peer-deps pour éviter les conflits React 18/19
-RUN npm install --legacy-peer-deps
-
-COPY . .
-RUN npm run build
-
-# Étape 2 : Backend Python et exécution
 FROM python:3.11-slim
+
+# Dépendances système pour le hachage et Flask
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Installation des dépendances système (FFmpeg pour l'analyse audio)
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
-
-# Installation des dépendances Python
+# Copie des fichiers de dépendances
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copie du build frontend et du code backend
-COPY --from=build-frontend /app/dist ./dist
-COPY main.py .
+# Copie du reste de l'application
+COPY . .
 
-# Création des dossiers de données
-RUN mkdir -p /config /data/series /data/movies /data/torrents/series /data/torrents/movies
+# On s'assure que le dossier dist existe pour Flask
+RUN mkdir -p dist
 
 EXPOSE 5000
+
+# Commande de démarrage
 CMD ["python", "main.py"]
