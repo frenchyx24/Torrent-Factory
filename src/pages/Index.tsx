@@ -20,11 +20,21 @@ const Index = () => {
   const [lang, setLang] = useState<Language>('fr');
   const navigate = useNavigate();
 
+  const loadLibrary = async () => {
+    try {
+      const res = await fetch('/api/library/series');
+      const data = await res.json();
+      setSeries(data);
+    } catch (e) {
+      console.error("Erreur chargement bibliothèque");
+    }
+  };
+
   useEffect(() => {
     fetch('/api/config').then(res => res.json()).then(data => {
       if (data.language) setLang(data.language);
     });
-    fetch('/api/library/series').then(res => res.json()).then(setSeries);
+    loadLibrary();
   }, []);
 
   const t = translations[lang].index;
@@ -33,9 +43,10 @@ const Index = () => {
     setLoading(true);
     try {
       const res = await fetch('/api/scan/series', { method: 'POST' });
-      const data = await res.json();
-      setSeries(data);
-      showSuccess(lang === 'fr' ? "Scan terminé" : "Scan completed");
+      if (res.ok) {
+        await loadLibrary();
+        showSuccess(lang === 'fr' ? "Scan terminé" : "Scan completed");
+      }
     } catch (e) { showError("Error"); }
     finally { setLoading(false); }
   };
@@ -70,7 +81,7 @@ const Index = () => {
           <p className="text-slate-400 mt-1">{t.subtitle}</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={fetchSeries} disabled={loading} variant="outline" className="bg-white/5 border-white/10 hover:bg-white/10 text-white">
+          <Button onClick={fetchSeries} disabled={loading} variant="outline" className="bg-slate-800 border-white/10 hover:bg-slate-700 text-white">
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
             {t.scan}
           </Button>

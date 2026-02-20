@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderOpen, Save, Globe, Loader2, ChevronRight, HardDrive, Cpu, XCircle, Languages } from 'lucide-react';
+import { FolderOpen, Save, Globe, Loader2, ChevronRight, HardDrive, Cpu, Languages } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { translations, Language } from '@/lib/i18n';
@@ -105,7 +105,7 @@ const Settings = () => {
                   variant={config.language === code ? "default" : "outline"}
                   className={cn(
                     "flex-1 py-6 border-white/10",
-                    config.language === code ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "text-slate-400 hover:bg-white/5"
+                    config.language === code ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
                   )}
                   onClick={() => setConfig({...config, language: code})}
                 >
@@ -124,7 +124,7 @@ const Settings = () => {
                 <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{key.replace('_', ' ')}</Label>
                 <div className="flex gap-2">
                   <Input className="bg-slate-950/50 border-white/10 text-white text-xs" value={config[key]} readOnly />
-                  <Button variant="outline" size="sm" onClick={() => openPicker(key)} className="border-white/10 text-white hover:bg-white/5">Explorer</Button>
+                  <Button variant="outline" size="sm" onClick={() => openPicker(key)} className="bg-slate-800 border-white/10 text-white hover:bg-slate-700">Explorer</Button>
                 </div>
               </div>
             ))}
@@ -148,10 +148,6 @@ const Settings = () => {
                 <Input type="number" className="bg-slate-950/50 border-white/10 text-white" value={config.torrent_timeout_sec} onChange={(e) => setConfig({...config, torrent_timeout_sec: parseInt(e.target.value) || 7200})} />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{t.fields.exclude}</Label>
-              <Input className="bg-slate-950/50 border-white/10 text-white" value={config.exclude_files} onChange={(e) => setConfig({...config, exclude_files: e.target.value})} />
-            </div>
           </CardContent>
         </Card>
 
@@ -167,7 +163,11 @@ const Settings = () => {
               ].map((opt) => (
                 <div key={opt.key} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
                   <Label className="text-white font-semibold">{opt.label}</Label>
-                  <Switch checked={config[opt.key]} onCheckedChange={(val) => setConfig({...config, [opt.key]: val})} />
+                  <Switch 
+                    checked={config[opt.key]} 
+                    onCheckedChange={(val) => setConfig({...config, [opt.key]: val})}
+                    className="data-[state=checked]:bg-emerald-500"
+                  />
                 </div>
               ))}
             </div>
@@ -185,7 +185,7 @@ const Settings = () => {
           <div className="space-y-4">
             <div className="flex gap-2 overflow-x-auto pb-2">
               {drives.map(d => (
-                <Button key={d.path} size="sm" variant="outline" onClick={() => browse(d.path)} className="border-white/10 text-xs shrink-0">
+                <Button key={d.path} size="sm" variant="outline" onClick={() => browse(d.path)} className="bg-slate-800 border-white/10 text-xs shrink-0">
                   <HardDrive className="w-3 h-3 mr-1" /> {d.name}
                 </Button>
               ))}

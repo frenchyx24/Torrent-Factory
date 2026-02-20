@@ -1,28 +1,40 @@
 <div align="center">
 
-# ⚡ Torrent Factory V1.0.2
+# ⚡ Torrent Factory V1.0.3
 ### *L'automatisation ultime pour votre bibliothèque média*
 
-[![Version](https://img.shields.io/badge/version-1.0.2-indigo?style=for-the-badge)](https://github.com/${GITHUB_REPOSITORY})
+[![Version](https://img.shields.io/badge/version-1.0.3-indigo?style=for-the-badge)](https://github.com/${GITHUB_REPOSITORY})
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=for-the-badge&logo=docker)](https://github.com/${GITHUB_REPOSITORY}/pkgs/container/torrent-factory)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
 
-**Torrent Factory** est une solution web "all-in-one" conçue pour transformer vos dossiers de films et séries en fichiers `.torrent` prêts à être partagés, le tout via une interface moderne et ultra-fluide.
-
-[Fonctionnement](#-comment-ça-marche) • [Installation](#-installation-rapide) • [Configuration](#-configuration) • [Stack Technique](#-stack-technique)
+**Torrent Factory** est une solution web "all-in-one" conçue pour transformer vos dossiers de films et séries en fichiers `.torrent` prêts à être partagés.
 
 </div>
 
 ---
 
-## 🌟 Points Forts
+## 🌟 Nouveautés V1.0.3
 
-- 🚀 **Interface Glassmorphism** : Une expérience utilisateur réactive bâtie avec React et Tailwind CSS.
-- 🔍 **Scan Intelligent** : Détection automatique des nouveaux contenus dans vos répertoires.
-- 🔊 **Analyse FFprobe** : Détection réelle des langues (MULTI, VFF, VOSTFR) via l'analyse des pistes audio.
-- ⚙️ **Moteur V1.0.2** : Gestion des tâches en arrière-plan avec file d'attente et workers multiples.
-- 🛡️ **Exclusions Avancées** : Nettoyage automatique des torrents (ignore les `.plexmatch`, `theme.mp3`, etc.).
-- 🐳 **Docker Native** : Déploiement en une seule commande avec persistance des données.
+- 🎨 **UI Contrast Fix** : Correction des boutons illisibles, meilleure visibilité globale.
+- 🟢 **Green Switches** : Les options actives sont maintenant clairement identifiées en vert émeraude.
+- 🔄 **Smart Update** : Le moteur fusionne maintenant les nouvelles options par défaut avec votre `config.json` existant sans rien écraser.
+- ⏳ **Real-time Tasks** : Simulation réelle de la progression des tâches (0% -> 100%) dans l'onglet Activités.
+- 🛠️ **Scan Fix** : Correction du bug qui vidait la page lors d'un rafraîchissement de bibliothèque.
+
+---
+
+## 🚀 Installation Rapide
+
+```bash
+docker run -d \
+  --name torrent-factory \
+  -p 5000:5000 \
+  -v /votre/chemin/config:/config \
+  -v /votre/chemin/series:/data/series \
+  -v /votre/chemin/movies:/data/movies \
+  -v /votre/chemin/torrents:/data/torrents \
+  ghcr.io/votre-repo/torrent-factory:latest
+```
 
 ---
 {/* ... reste du README */}

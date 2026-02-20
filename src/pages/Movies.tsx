@@ -18,13 +18,24 @@ const Movies = () => {
   const [selected, setSelected] = useState<string[]>([]);
   const navigate = useNavigate();
 
+  const loadLibrary = async () => {
+    try {
+      const res = await fetch('/api/library/movies');
+      const data = await res.json();
+      setMovies(data);
+    } catch (e) {
+      console.error("Erreur chargement bibliothèque");
+    }
+  };
+
   const fetchMovies = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/scan/movies', { method: 'POST' });
-      const data = await res.json();
-      setMovies(data);
-      showSuccess("Scan des films terminé");
+      if (res.ok) {
+        await loadLibrary(); // On recharge la liste après le scan
+        showSuccess("Scan des films terminé");
+      }
     } catch (e) {
       showError("Erreur lors du scan");
     } finally {
@@ -55,7 +66,7 @@ const Movies = () => {
   };
 
   useEffect(() => {
-    fetch('/api/library/movies').then(res => res.json()).then(setMovies);
+    loadLibrary();
   }, []);
 
   const filteredMovies = movies.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
@@ -68,7 +79,7 @@ const Movies = () => {
           <p className="text-slate-400 mt-1">Gérez vos films et générez des torrents.</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={fetchMovies} disabled={loading} variant="outline" className="bg-white/5 border-white/10 text-white">
+          <Button onClick={fetchMovies} disabled={loading} variant="outline" className="bg-slate-800 border-white/10 text-white hover:bg-slate-700">
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
             Scanner
           </Button>
