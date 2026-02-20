@@ -61,7 +61,8 @@ DEFAULT_CONFIG = {
     "comment": "Created with TF",
     "torrent_timeout_sec": 7200,
     "reset_tasks_on_start": True,
-    "exclude_files": ".plexmatch,theme.mp3"
+    "exclude_files": ".plexmatch,theme.mp3",
+    "language": "fr"
 }
 
 def load_json(path, default):

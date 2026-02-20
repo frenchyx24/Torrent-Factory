@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Tv, 
@@ -13,22 +13,31 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { name: 'Séries', path: '/', icon: Tv },
-  { name: 'Films', path: '/movies', icon: Film },
-  { name: 'Torrents', path: '/torrents', icon: FolderCheck },
-  { name: 'Tâches', path: '/tasks', icon: Activity },
-  { name: 'Logs', path: '/logs', icon: Terminal },
-  { name: 'Réglages', path: '/settings', icon: Settings },
-];
+import { translations, Language } from '@/lib/i18n';
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
+  const [lang, setLang] = useState<Language>('fr');
+
+  useEffect(() => {
+    fetch('/api/config').then(res => res.json()).then(data => {
+      if (data.language) setLang(data.language);
+    });
+  }, []);
+
+  const t = translations[lang].nav;
+
+  const navItems = [
+    { name: t.series, path: '/', icon: Tv },
+    { name: t.movies, path: '/movies', icon: Film },
+    { name: t.torrents, path: '/torrents', icon: FolderCheck },
+    { name: t.tasks, path: '/tasks', icon: Activity },
+    { name: t.logs, path: '/logs', icon: Terminal },
+    { name: t.settings, path: '/settings', icon: Settings },
+  ];
 
   return (
     <div className="flex h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans">
-      {/* Sidebar */}
       <aside className="w-64 border-r border-white/10 bg-slate-900/50 backdrop-blur-xl flex flex-col p-6">
         <div className="flex items-center gap-3 mb-10 px-2">
           <div className="bg-indigo-600 p-2 rounded-lg shadow-lg shadow-indigo-500/20">
@@ -67,7 +76,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_10%_20%,rgba(99,102,241,0.05)_0%,transparent_40%),radial-gradient(circle_at_90%_80%,rgba(16,185,129,0.03)_0%,transparent_40%)]">
         <div className="max-w-7xl mx-auto p-8">
           {children}

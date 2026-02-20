@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderOpen, Save, Globe, Loader2, ChevronRight, HardDrive, Clock, MessageSquare, Cpu, XCircle } from 'lucide-react';
+import { FolderOpen, Save, Globe, Loader2, ChevronRight, HardDrive, Cpu, XCircle, Languages } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { translations, Language } from '@/lib/i18n';
 
 const Settings = () => {
   const [config, setConfig] = useState({
@@ -17,7 +18,7 @@ const Settings = () => {
     tracker_url: "", private: true, piece_size: 0, analyze_audio: true, 
     show_size: true, comment: "Created with TF", max_workers: 2, 
     torrent_timeout_sec: 7200, reset_tasks_on_start: true,
-    exclude_files: ".plexmatch,theme.mp3"
+    exclude_files: ".plexmatch,theme.mp3", language: "fr"
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,6 +35,8 @@ const Settings = () => {
       setLoading(false);
     });
   }, []);
+
+  const t = translations[config.language as Language].settings;
 
   const openPicker = async (target: string) => {
     setPickerTarget(target);
@@ -64,8 +67,11 @@ const Settings = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config)
       });
-      if (res.ok) showSuccess("Configuration enregistrée");
-    } catch (e) { showError("Erreur de sauvegarde"); }
+      if (res.ok) {
+        showSuccess(config.language === 'fr' ? "Configuration enregistrée" : config.language === 'en' ? "Configuration saved" : "Konfiguration gespeichert");
+        window.location.reload(); // Recharger pour appliquer la langue partout
+      }
+    } catch (e) { showError("Error"); }
     finally { setSaving(false); }
   };
 
@@ -74,14 +80,40 @@ const Settings = () => {
   return (
     <Layout>
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-white">Configuration V38</h2>
-        <p className="text-slate-400 mt-1">Moteur de création réel avec toutes les options activées.</p>
+        <h2 className="text-3xl font-bold text-white">{t.title}</h2>
+        <p className="text-slate-400 mt-1">{t.subtitle}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Langue */}
+        <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md lg:col-span-2">
+          <CardHeader><CardTitle className="text-white flex items-center gap-2"><Languages className="w-5 h-5 text-indigo-400" />{t.sections.language}</CardTitle></CardHeader>
+          <CardContent>
+            <div className="flex gap-4">
+              {[
+                { code: 'fr', name: 'Français' },
+                { code: 'en', name: 'English' },
+                { code: 'de', name: 'Deutsch' }
+              ].map((l) => (
+                <Button 
+                  key={l.code}
+                  variant={config.language === l.code ? "default" : "outline"}
+                  className={cn(
+                    "flex-1 py-6 border-white/10",
+                    config.language === l.code ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "text-slate-400 hover:bg-white/5"
+                  )}
+                  onClick={() => setConfig({...config, language: l.code})}
+                >
+                  {l.name}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Chemins */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2"><FolderOpen className="w-5 h-5 text-indigo-400" />Répertoires</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-white flex items-center gap-2"><FolderOpen className="w-5 h-5 text-indigo-400" />{t.sections.dirs}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             {['series_root', 'series_out', 'movies_root', 'movies_out'].map((key) => (
               <div key={key} className="space-y-2">
@@ -97,31 +129,31 @@ const Settings = () => {
 
         {/* Paramètres Techniques */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2"><Globe className="w-5 h-5 text-indigo-400" />Paramètres Torrent</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-white flex items-center gap-2"><Globe className="w-5 h-5 text-indigo-400" />{t.sections.torrent}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Tracker URL</Label>
-              <Input className="bg-slate-950/50 border-white/10 text-white" placeholder="udp://tracker.opentrackr.org:1337/announce" value={config.tracker_url} onChange={(e) => setConfig({...config, tracker_url: e.target.value})} />
+              <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{t.fields.tracker}</Label>
+              <Input className="bg-slate-950/50 border-white/10 text-white" value={config.tracker_url} onChange={(e) => setConfig({...config, tracker_url: e.target.value})} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Taille Pièces (0=auto)</Label>
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{t.fields.piece}</Label>
                 <Input type="number" className="bg-slate-950/50 border-white/10 text-white" value={config.piece_size} onChange={(e) => setConfig({...config, piece_size: parseInt(e.target.value) || 0})} />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Timeout (sec)</Label>
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{t.fields.timeout}</Label>
                 <Input type="number" className="bg-slate-950/50 border-white/10 text-white" value={config.torrent_timeout_sec} onChange={(e) => setConfig({...config, torrent_timeout_sec: parseInt(e.target.value) || 7200})} />
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Fichiers à exclure (séparés par virgule)</Label>
+              <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{t.fields.exclude}</Label>
               <div className="relative">
                 <XCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <Input className="pl-10 bg-slate-950/50 border-white/10 text-white" placeholder=".plexmatch, theme.mp3" value={config.exclude_files} onChange={(e) => setConfig({...config, exclude_files: e.target.value})} />
+                <Input className="pl-10 bg-slate-950/50 border-white/10 text-white" value={config.exclude_files} onChange={(e) => setConfig({...config, exclude_files: e.target.value})} />
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Commentaire</Label>
+              <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{t.fields.comment}</Label>
               <Input className="bg-slate-950/50 border-white/10 text-white" value={config.comment} onChange={(e) => setConfig({...config, comment: e.target.value})} />
             </div>
           </CardContent>
@@ -129,28 +161,22 @@ const Settings = () => {
 
         {/* Options Système */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md lg:col-span-2">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2"><Cpu className="w-5 h-5 text-indigo-400" />Options & Performance</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-white flex items-center gap-2"><Cpu className="w-5 h-5 text-indigo-400" />{t.sections.system}</CardTitle></CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { label: "Mode Privé", key: "private", desc: "Ajoute le flag -P (Private)" },
-                { label: "Analyse Audio", key: "analyze_audio", desc: "Utilise FFprobe pour détecter les langues" },
-                { label: "Afficher Taille", key: "show_size", desc: "Scan récursif (plus lent)" },
-                { label: "Reset Tâches", key: "reset_tasks_on_start", desc: "Nettoie la liste au démarrage" }
+                { label: t.options.private, key: "private" },
+                { label: t.options.audio, key: "analyze_audio" },
+                { label: t.options.size, key: "show_size" },
+                { label: t.options.reset, key: "reset_tasks_on_start" }
               ].map((opt) => (
                 <div key={opt.key} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-indigo-500/30 transition-all">
-                  <div>
-                    <Label className="text-white font-semibold">{opt.label}</Label>
-                    <p className="text-[10px] text-slate-500">{opt.desc}</p>
-                  </div>
+                  <Label className="text-white font-semibold">{opt.label}</Label>
                   <Switch checked={config[opt.key]} onCheckedChange={(val) => setConfig({...config, [opt.key]: val})} />
                 </div>
               ))}
               <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
-                <div>
-                  <Label className="text-white font-semibold">Workers Max</Label>
-                  <p className="text-[10px] text-slate-500">Nombre de tâches simultanées</p>
-                </div>
+                <Label className="text-white font-semibold">{t.fields.workers}</Label>
                 <Input type="number" className="w-20 bg-slate-950/50 border-white/10 text-white h-8" value={config.max_workers} onChange={(e) => setConfig({...config, max_workers: parseInt(e.target.value) || 1})} />
               </div>
             </div>
@@ -159,10 +185,9 @@ const Settings = () => {
       </div>
 
       <Button onClick={handleSave} disabled={saving} className="w-full mt-8 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-xl shadow-indigo-500/20 transition-all hover:scale-[1.01]">
-        {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />} ENREGISTRER LA CONFIGURATION
+        {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />} {t.save}
       </Button>
 
-      {/* File Picker Dialog */}
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="bg-slate-900 border-white/10 text-white max-w-2xl">
           <DialogHeader><DialogTitle>Choisir un dossier</DialogTitle></DialogHeader>
