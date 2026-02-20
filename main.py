@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.0.4 - Moteur de Production
+Torrent Factory V1.0.5 - Moteur de Production
 """
 
 import os
@@ -47,13 +47,37 @@ def add_log(msg, level="info"):
     })
     if len(logs) > 100: logs.pop(0)
 
+def get_size_format(path):
+    """Calcule la taille réelle d'un fichier ou dossier."""
+    try:
+        size_bytes = 0
+        if os.path.isfile(path):
+            size_bytes = os.path.getsize(path)
+        else:
+            for dirpath, dirnames, filenames in os.walk(path):
+                for f in filenames:
+                    fp = os.path.join(dirpath, f)
+                    if not os.path.islink(fp):
+                        size_bytes += os.path.getsize(fp)
+        
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size_bytes < 1024:
+                return f"{size_bytes:.1f} {unit}"
+            size_bytes /= 1024
+    except:
+        return "0 B"
+    return "0 B"
+
 def load_config():
+    """Charge la config en préservant les réglages utilisateur."""
     config = DEFAULT_CONFIG.copy()
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, 'r') as f:
                 user_config = json.load(f)
-                config.update(user_config)
+                # On ne remplace que ce qui est présent dans le fichier utilisateur
+                for key, value in user_config.items():
+                    config[key] = value
         except Exception as e:
             add_log(f"Erreur lecture config: {str(e)}", "error")
     return config
@@ -64,33 +88,34 @@ def save_config(config):
         json.dump(config, f, indent=4)
 
 def task_processor():
-    """Simule la progression des tâches et crée les fichiers à la fin."""
+    """Simule la progression et crée les fichiers avec le tag de langue."""
     while True:
         config = load_config()
         for task in tasks:
             if task['status'] == 'running':
                 if task['progress_item'] < 100:
-                    task['progress_item'] += 5
+                    task['progress_item'] += 10
                     task['progress_global'] = task['progress_item']
                 else:
                     task['status'] = 'completed'
                     try:
                         out_dir = config['series_out'] if task['type'] == 'séries' else config['movies_out']
                         os.makedirs(out_dir, exist_ok=True)
-                        file_path = os.path.join(out_dir, f"{task['name']}.torrent")
+                        # Formatage du nom avec le tag de langue
+                        lang = task.get('lang_tag', 'MULTI')
+                        file_name = f"{task['name']} [{lang}].torrent"
+                        file_path = os.path.join(out_dir, file_name)
                         with open(file_path, 'w') as f:
-                            f.write("dummy torrent content")
-                        add_log(f"Fichier créé : {task['name']}.torrent", "success")
+                            f.write("dummy torrent content v1.0.5")
+                        add_log(f"Fichier créé : {file_name}", "success")
                     except Exception as e:
                         add_log(f"Erreur création fichier : {str(e)}", "error")
                     
                     add_log(f"Tâche terminée : {task['name']}", "success")
         time.sleep(1)
 
-# Lancement du thread de traitement des tâches
 threading.Thread(target=task_processor, daemon=True).start()
 
-# API Routes
 @app.route('/api/config', methods=['GET', 'POST'])
 def handle_config():
     if request.method == 'POST':
@@ -108,8 +133,13 @@ def list_series():
     items = []
     try:
         for name in sorted(os.listdir(root)):
-            if os.path.isdir(os.path.join(root, name)):
-                items.append({"name": name, "size": "1.2 GB", "detected_tag": "MULTI"})
+            full_path = os.path.join(root, name)
+            if os.path.isdir(full_path):
+                items.append({
+                    "name": name, 
+                    "size": get_size_format(full_path), 
+                    "detected_tag": "MULTI"
+                })
     except: pass
     return jsonify(items)
 
@@ -123,14 +153,18 @@ def list_movies():
         for name in sorted(os.listdir(root)):
             full_path = os.path.join(root, name)
             if os.path.isfile(full_path) or os.path.isdir(full_path):
-                items.append({"name": name, "size": "4.5 GB", "detected_tag": "MULTI"})
+                items.append({
+                    "name": name, 
+                    "size": get_size_format(full_path), 
+                    "detected_tag": "MULTI"
+                })
     except: pass
     return jsonify(items)
 
 @app.route('/api/scan/series', methods=['POST'])
 @app.route('/api/scan/movies', methods=['POST'])
 def scan_library():
-    time.sleep(1.5)
+    time.sleep(1)
     add_log("Scan de la bibliothèque terminé", "success")
     return jsonify({"status": "ok"})
 
@@ -147,6 +181,7 @@ def add_task():
             "id": str(uuid.uuid4())[:8],
             "name": t['name'],
             "type": task_type,
+            "lang_tag": t.get('lang_tag', 'MULTI'),
             "status": "running",
             "progress_item": 0,
             "progress_global": 0,
@@ -154,7 +189,7 @@ def add_task():
             "created_at": time.strftime("%Y-%m-%d %H:%M")
         }
         tasks.append(new_task)
-        add_log(f"Démarrage de la création ({task_type}) : {t['name']}", "info")
+        add_log(f"Démarrage ({task_type}) : {t['name']} [{new_task['lang_tag']}]", "info")
     return jsonify({"status": "ok"})
 
 @app.route('/api/tasks/clear')
@@ -205,5 +240,5 @@ def serve(path):
         return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
-    add_log("Démarrage de Torrent Factory V1.0.4", "info")
+    add_log("Démarrage de Torrent Factory V1.0.5", "info")
     app.run(host='0.0.0.0', port=5000)

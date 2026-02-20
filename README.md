@@ -1,9 +1,9 @@
 <div align="center">
 
-# ⚡ Torrent Factory V1.0.4
+# ⚡ Torrent Factory V1.0.5
 ### *L'automatisation ultime pour votre bibliothèque média*
 
-[![Version](https://img.shields.io/badge/version-1.0.4-indigo?style=for-the-badge)](https://github.com/${GITHUB_REPOSITORY})
+[![Version](https://img.shields.io/badge/version-1.0.5-indigo?style=for-the-badge)](https://github.com/${GITHUB_REPOSITORY})
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=for-the-badge&logo=docker)](https://github.com/${GITHUB_REPOSITORY}/pkgs/container/torrent-factory)
 [![License](https://img.shields.io/badge/License-MIT-emerald?style=for-the-badge)](LICENSE)
 
@@ -13,13 +13,13 @@
 
 ---
 
-## 🌟 Nouveautés V1.0.4
+## 🌟 Nouveautés V1.0.5
 
-- 🛠️ **Task Engine Fix** : Création réelle des fichiers `.torrent` après la fin de la progression.
-- 📂 **Sorted Lists** : Les torrents et les éléments de bibliothèque sont maintenant triés par ordre alphabétique.
-- 🚀 **Stability** : Amélioration du traitement des tâches en arrière-plan.
-- 🎨 **UI Contrast Fix** : Correction des boutons illisibles, meilleure visibilité globale.
-- 🟢 **Green Switches** : Les options actives sont maintenant clairement identifiées en vert émeraude.
+- 📏 **Real Sizes** : Calcul dynamique de la taille des dossiers et fichiers sur le disque.
+- 🏷️ **Language Tags** : Les torrents générés incluent désormais le tag de langue dans le nom du fichier (ex: `Nom [FRENCH].torrent`).
+- 💾 **Config Persistence** : Amélioration du moteur de fusion de configuration pour éviter toute perte de réglages lors des mises à jour.
+- 🔢 **Version Sync** : Harmonisation de la version v1.0.5 sur l'ensemble de l'interface et du backend.
+- 📂 **Sorted Lists** : Tri alphabétique maintenu pour une meilleure lisibilité.
 
 ---
 
