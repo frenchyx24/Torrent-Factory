@@ -11,9 +11,10 @@ import { FolderOpen, Save, Globe, Loader2, ChevronRight, HardDrive, Cpu, XCircle
 import { showSuccess, showError } from '@/utils/toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { translations, Language } from '@/lib/i18n';
+import { cn } from "@/lib/utils";
 
 const Settings = () => {
-  const [config, setConfig] = useState({
+  const [config, setConfig] = useState<any>({
     series_root: "", series_out: "", movies_root: "", movies_out: "",
     tracker_url: "", private: true, piece_size: 0, analyze_audio: true, 
     show_size: true, comment: "Created with TF", max_workers: 2, 
@@ -26,32 +27,45 @@ const Settings = () => {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState("");
   const [currentPath, setCurrentPath] = useState("/");
-  const [folders, setFolders] = useState([]);
-  const [drives, setDrives] = useState([]);
+  const [folders, setFolders] = useState<any[]>([]);
+  const [drives, setDrives] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('/api/config').then(res => res.json()).then(data => {
-      setConfig(data);
-      setLoading(false);
-    });
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(data => {
+        setConfig((prev: any) => ({ ...prev, ...data }));
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const t = translations[config.language as Language].settings;
+  // Sécurisation de l'accès aux traductions
+  const currentLang = (config.language as Language) || 'fr';
+  const t = translations[currentLang]?.settings || translations['fr'].settings;
 
   const openPicker = async (target: string) => {
     setPickerTarget(target);
-    const driveRes = await fetch('/api/drives');
-    const driveData = await driveRes.json();
-    setDrives(driveData);
-    browse(config[target] || "/");
-    setPickerOpen(true);
+    try {
+      const driveRes = await fetch('/api/drives');
+      const driveData = await driveRes.json();
+      setDrives(driveData);
+      browse(config[target] || "/");
+      setPickerOpen(true);
+    } catch (e) {
+      showError("Impossible de charger les lecteurs");
+    }
   };
 
   const browse = async (path: string) => {
-    const res = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
-    const data = await res.json();
-    setCurrentPath(data.current);
-    setFolders(data.items);
+    try {
+      const res = await fetch(`/api/browse?path=${encodeURIComponent(path)}`);
+      const data = await res.json();
+      setCurrentPath(data.current);
+      setFolders(data.items);
+    } catch (e) {
+      showError("Erreur de navigation");
+    }
   };
 
   const selectFolder = () => {
@@ -68,11 +82,15 @@ const Settings = () => {
         body: JSON.stringify(config)
       });
       if (res.ok) {
-        showSuccess(config.language === 'fr' ? "Configuration enregistrée" : config.language === 'en' ? "Configuration saved" : "Konfiguration gespeichert");
-        window.location.reload(); // Recharger pour appliquer la langue partout
+        showSuccess(currentLang === 'fr' ? "Configuration enregistrée" : currentLang === 'en' ? "Configuration saved" : "Konfiguration gespeichert");
+        // Petit délai avant de recharger pour laisser le toast s'afficher
+        setTimeout(() => window.location.reload(), 500);
       }
-    } catch (e) { showError("Error"); }
-    finally { setSaving(false); }
+    } catch (e) { 
+      showError("Erreur lors de la sauvegarde"); 
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   if (loading) return <Layout><div className="flex items-center justify-center h-[60vh]"><Loader2 className="w-10 h-10 text-indigo-500 animate-spin" /></div></Layout>;
@@ -99,8 +117,10 @@ const Settings = () => {
                   key={l.code}
                   variant={config.language === l.code ? "default" : "outline"}
                   className={cn(
-                    "flex-1 py-6 border-white/10",
-                    config.language === l.code ? "bg-indigo-600 hover:bg-indigo-700 text-white" : "text-slate-400 hover:bg-white/5"
+                    "flex-1 py-6 border-white/10 transition-all",
+                    config.language === l.code 
+                      ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-500" 
+                      : "text-slate-400 hover:bg-white/5 border-white/5"
                   )}
                   onClick={() => setConfig({...config, language: l.code})}
                 >
@@ -171,8 +191,8 @@ const Settings = () => {
                 { label: t.options.reset, key: "reset_tasks_on_start" }
               ].map((opt) => (
                 <div key={opt.key} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-indigo-500/30 transition-all">
-                  <Label className="text-white font-semibold">{opt.label}</Label>
-                  <Switch checked={config[opt.key]} onCheckedChange={(val) => setConfig({...config, [opt.key]: val})} />
+                  <Label className="text-white font-semibold cursor-pointer" htmlFor={`switch-${opt.key}`}>{opt.label}</Label>
+                  <Switch id={`switch-${opt.key}`} checked={config[opt.key]} onCheckedChange={(val) => setConfig({...config, [opt.key]: val})} />
                 </div>
               ))}
               <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
