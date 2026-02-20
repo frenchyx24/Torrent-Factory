@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.0.8 - Production Build
+Torrent Factory V1.0.8 - Full Production Build
 """
 
 import os
@@ -15,15 +15,15 @@ import re
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
+# Logs configurés pour la prod
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Import sécurisé
 try:
     from torrent_tool import Torrent
-    logger.info("Moteur hachage OK.")
+    logger.info("Moteur hachage Torrent-Tool chargé.")
 except ImportError:
-    logger.error("Moteur hachage manquant !")
+    logger.error("ALERTE : torrent-tool n'est pas installé correctement !")
     Torrent = None
 
 app = Flask(__name__, static_folder='dist')
@@ -53,7 +53,9 @@ def add_log(msg, level="info"):
 
 def init_folders():
     for f in ["/config", "/data/series", "/data/movies", "/data/torrents/series", "/data/torrents/movies", "dist"]:
-        if not os.path.exists(f): os.makedirs(f, exist_ok=True)
+        if not os.path.exists(f): 
+            try: os.makedirs(f, exist_ok=True)
+            except: pass
 
 def load_config():
     c = DEFAULT_CONFIG.copy()
@@ -82,7 +84,7 @@ def task_processor():
             if t['status'] == 'running' and t['progress_item'] == 0:
                 t['progress_item'] = 10
                 try:
-                    if not Torrent: raise Exception("torrent-tool non installé")
+                    if not Torrent: raise Exception("torrent-tool manquant")
                     out = cfg['series_out'] if t['type'] == 'séries' else cfg['movies_out']
                     os.makedirs(out, exist_ok=True)
                     name = re.sub(r'[\\/*?:"<>|]', '_', t['name'])
@@ -104,9 +106,10 @@ def task_processor():
 @app.route('/api/config', methods=['GET', 'POST'])
 def api_config():
     if request.method == 'POST':
+        save_config = request.json
         os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-        with open(CONFIG_PATH, 'w') as f: json.dump(request.json, f, indent=4)
-        return jsonify(request.json)
+        with open(CONFIG_PATH, 'w') as f: json.dump(save_config, f, indent=4)
+        return jsonify(save_config)
     return jsonify(load_config())
 
 @app.route('/api/library/<lib_type>')
@@ -114,7 +117,9 @@ def api_library(lib_type):
     cfg = load_config()
     root = cfg['series_root'] if lib_type == 'series' else cfg['movies_root']
     if not os.path.exists(root): return jsonify([])
-    return jsonify([{"name": n, "size": get_readable_size(os.path.join(root, n)), "detected_tag": "MULTI"} for n in sorted(os.listdir(root))])
+    try:
+        return jsonify([{"name": n, "size": get_readable_size(os.path.join(root, n)), "detected_tag": "MULTI"} for n in sorted(os.listdir(root))])
+    except: return jsonify([])
 
 @app.route('/api/tasks/add', methods=['POST'])
 def api_tasks_add():
@@ -130,6 +135,12 @@ def api_tasks_add():
 
 @app.route('/api/tasks/list')
 def api_tasks_list(): return jsonify(tasks)
+
+@app.route('/api/tasks/clear')
+def api_tasks_clear():
+    global tasks
+    tasks = [t for t in tasks if t['status'] == 'running']
+    return jsonify({"status": "ok"})
 
 @app.route('/api/logs')
 def api_logs(): return jsonify(logs_list)
@@ -152,7 +163,7 @@ def serve(path):
     if path != "" and os.path.exists(fp): return send_from_directory(app.static_folder, path)
     idx = os.path.join(app.static_folder, 'index.html')
     if os.path.exists(idx): return send_from_directory(app.static_folder, 'index.html')
-    return "<h1>V1.0.8</h1><p>Frontend non compilé (dist/ manquant).</p>", 200
+    return "<h1>V1.0.8</h1><p>En attente du build frontend...</p>", 200
 
 if __name__ == '__main__':
     init_folders()
