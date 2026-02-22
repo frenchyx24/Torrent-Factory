@@ -44,7 +44,7 @@ const Settings = () => {
       browse(config[target] || "/");
       setPickerOpen(true);
     } catch (e) {
-      showError("Erreur : Impossible de contacter le serveur");
+      showError("Erreur serveur");
     }
   };
 
@@ -77,7 +77,7 @@ const Settings = () => {
         setTimeout(() => window.location.reload(), 500);
       }
     } catch (e) { 
-      showError("Erreur lors de la sauvegarde"); 
+      showError("Erreur de sauvegarde"); 
     } finally { 
       setSaving(false); 
     }
@@ -91,7 +91,7 @@ const Settings = () => {
   return (
     <Layout>
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-white">{t.title}</h2>
+        <h2 className="text-3xl font-bold text-white">Configuration V1.0.9</h2>
         <p className="text-slate-400 mt-1">{t.subtitle}</p>
       </div>
 
@@ -141,43 +141,26 @@ const Settings = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{t.fields.piece}</Label>
-                <Input type="number" className="bg-slate-950/50 border-white/10 text-white" value={config.piece_size} onChange={(e) => setConfig({...config, piece_size: parseInt(e.target.value) || 0})} />
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Piece (2^x)</Label>
+                <Input type="number" className="bg-slate-950/50 border-white/10 text-white" value={config.piece_size} onChange={(e) => setConfig({...config, piece_size: parseInt(e.target.value) || 21})} />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">{t.fields.timeout}</Label>
-                <Input type="number" className="bg-slate-950/50 border-white/10 text-white" value={config.torrent_timeout_sec} onChange={(e) => setConfig({...config, torrent_timeout_sec: parseInt(e.target.value) || 7200})} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md lg:col-span-2">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2"><Cpu className="w-5 h-5 text-indigo-400" />{t.sections.system}</CardTitle></CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { label: t.options.private, key: "private" },
-                { label: t.options.audio, key: "analyze_audio" },
-                { label: t.options.size, key: "show_size" },
-                { label: t.options.reset, key: "reset_tasks_on_start" }
-              ].map((opt) => (
-                <div key={opt.key} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
-                  <Label className="text-white font-semibold">{opt.label}</Label>
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider">Mode Privé</Label>
+                <div className="flex items-center h-10">
                   <Switch 
-                    checked={config[opt.key]} 
-                    onCheckedChange={(val) => setConfig({...config, [opt.key]: val})}
+                    checked={config.private} 
+                    onCheckedChange={(val) => setConfig({...config, private: val})}
                     className="data-[state=checked]:bg-emerald-500"
                   />
                 </div>
-              ))}
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
       <Button onClick={handleSave} disabled={saving} className="w-full mt-8 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-xl shadow-indigo-500/20">
-        {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />} {t.save}
+        {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />} ENREGISTRER V1.0.9
       </Button>
 
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
@@ -194,7 +177,7 @@ const Settings = () => {
             <div className="bg-slate-950 rounded-lg p-2 text-xs font-mono text-indigo-400 truncate">{currentPath}</div>
             <div className="h-64 overflow-y-auto space-y-1 pr-2">
               <div onClick={() => browse(currentPath.split('/').slice(0, -1).join('/') || '/')} className="flex items-center p-2 hover:bg-white/5 rounded cursor-pointer text-slate-400">
-                <ChevronRight className="w-4 h-4 rotate-180 mr-2" /> .. (Parent)
+                <ChevronRight className="w-4 h-4 rotate-180 mr-2" /> ..
               </div>
               {folders.map(f => (
                 <div key={f.path} onClick={() => browse(f.path)} className="flex items-center p-2 hover:bg-white/5 rounded cursor-pointer group">

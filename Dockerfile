@@ -1,14 +1,11 @@
-FROM python:3.11
+FROM python:3.11-slim
 
-# Installation de quelques outils de base au cas où
+# Installation de mktorrent (l'outil le plus stable pour créer des torrents)
 RUN apt-get update && apt-get install -y \
-    build-essential \
+    mktorrent \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
-# Mise à jour des outils de gestion de paquets
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
