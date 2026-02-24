@@ -1,3 +1,20 @@
+# Stage 1: Build frontend with Node.js
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app
+
+# Copy frontend build files
+COPY package.json pnpm-lock.yaml tsconfig.json vite.config.ts tailwind.config.ts postcss.config.js ./
+COPY src/ ./src/
+COPY public/ ./public/
+
+# Install pnpm and build dependencies
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
+
+# Build frontend to dist/
+RUN pnpm build
+
+# Stage 2: Runtime with Python backend + frontend files
 FROM python:3.11-slim
 
 # Installation de mktorrent (l'outil stable pour créer des torrents)
@@ -7,14 +24,20 @@ RUN apt-get update \
 
 WORKDIR /app
 
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copier le code et limiter les permissions au besoin
-COPY . .
+# Copy backend code
+COPY main.py .
+COPY scripts/ ./scripts/
+COPY manifest.json .
+
+# Copy prebuilt frontend from stage 1
+COPY --from=frontend-builder /app/dist ./dist
 
 # Création de la structure de dossiers utilisées en runtime
-RUN mkdir -p dist config data/series data/movies data/torrents/series data/torrents/movies \
+RUN mkdir -p config data/series data/movies data/torrents/series data/torrents/movies \
     && chmod -R 755 config data dist || true
 
 EXPOSE 5000

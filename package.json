@@ -1,6 +1,6 @@
 {
   "name": "torrent-factory",
-  "version": "1.0.12-test",
+  "version": "1.0.13-test",
   "private": true,
   "type": "module",
   "scripts": {

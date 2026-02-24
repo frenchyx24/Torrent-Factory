@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory v1.0.12-test - Corrections, fiabilisations et améliorations
+Torrent Factory v1.0.13-test - All-in-One Docker, corrections et améliorations
 """
 
 import os
@@ -41,7 +41,7 @@ DEFAULT_CONFIG = {
     "tracker_url": "http://tracker.example.com/announce",
     "private": True,
     "piece_size": 21, # 2^21 = 2MB (mktorrent utilise des puissances de 2)
-    "comment": "Torrent Factory v1.0.12-test",
+    "comment": "Torrent Factory v1.0.13-test",
     "language": "fr"
 }
 
@@ -478,7 +478,7 @@ def serve(path):
     if path != "" and os.path.exists(fp): return send_from_directory(app.static_folder, path)
     idx = os.path.join(app.static_folder, 'index.html')
     if os.path.exists(idx): return send_from_directory(app.static_folder, 'index.html')
-    return "<h1>v1.0.12-test</h1><p>Build frontend requis.</p>", 200
+    return "<h1>v1.0.13-test</h1><p>Frontend build included in Docker.</p>", 200
 
 if __name__ == '__main__':
     init_folders()
