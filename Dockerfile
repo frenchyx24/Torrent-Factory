@@ -1,25 +1,24 @@
 # Stage 1: Build frontend with Node.js
-FROM node:18-alpine AS frontend-builder
+FROM node:18-slim AS frontend-builder
 
 WORKDIR /app
 
 # Install pnpm globally
-RUN npm install -g pnpm
+RUN npm install -g pnpm@latest
 
-# Copy all config files first
+# Copy package files
 COPY package.json pnpm-lock.yaml ./
-COPY tsconfig*.json ./
-COPY vite.config.ts postcss.config.js tailwind.config.ts ./
-COPY eslint.config.js ./
 
-# Copy source and public directories
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy all config files
+COPY tsconfig*.json vite.config.ts postcss.config.js tailwind.config.ts ./
+COPY eslint.config.js ./
 COPY src/ ./src/
 COPY public/ ./public/
 
-# Install dependencies with frozen lockfile
-RUN pnpm install --frozen-lockfile && pnpm install
-
-# Build frontend to dist/
+# Build frontend
 RUN pnpm build
 
 # Stage 2: Runtime with Python backend + frontend files
