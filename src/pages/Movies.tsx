@@ -54,7 +54,7 @@ const Movies = () => {
       const res = await fetch('/api/tasks/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tasks, type: 'films' })
+        body: JSON.stringify({ tasks, type: 'movies' })
       });
       if (res.ok) {
         showSuccess(`${tasks.length} film(s) envoyé(s)`);

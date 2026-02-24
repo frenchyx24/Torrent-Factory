@@ -62,7 +62,7 @@ const Index = () => {
       const res = await fetch('/api/tasks/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tasks, type: 'séries' })
+        body: JSON.stringify({ tasks, type: 'series' })
       });
       if (res.ok) {
         showSuccess(`${tasks.length} item(s)`);

@@ -1,0 +1,76 @@
+name: CI / Build, E2E and Publish
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    types: [ closed ]
+  schedule:
+    - cron: '0 2 * * *' # daily at 02:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  actions: read
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: ${{ github.repository_owner }}/torrent-factory
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Read version from manifest
+        id: ver
+        run: |
+          VERSION=$(jq -r .version manifest.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/${{ env.IMAGE_NAME }}:${{ env.VERSION }} .
+
+      - name: Syntax check python
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m compileall .
+
+      - name: Run container for E2E
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/data
+          docker run -d --name torrent-factory-e2e -p 5000:5000 -v $GITHUB_WORKSPACE/data:/data ghcr.io/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+          # wait for app to be ready
+          for i in {1..60}; do
+            if curl -sS http://localhost:5000/api/config >/dev/null 2>&1; then
+              echo "app ready"
+              break
+            fi
+            sleep 2
+          done
+          # execute E2E script inside container
+          docker exec torrent-factory-e2e bash /app/scripts/e2e_real_generate.sh
+
+      - name: Push image to GHCR
+        if: success()
+        run: |
+          docker push ghcr.io/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f torrent-factory-e2e || true
+          docker image prune -f || true

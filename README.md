@@ -1,18 +1,18 @@
 <div align="center">
 
-# ⚡ Torrent Factory V1.0.9
+# ⚡ Torrent Factory v1.0.10-test
 ### *L'automatisation ultime avec mktorrent engine*
 
-[![Version](https://img.shields.io/badge/version-1.0.9-indigo?style=for-the-badge)](https://github.com/${GITHUB_REPOSITORY})
+[![Version](https://img.shields.io/badge/version-1.0.10-test-indigo?style=for-the-badge)](https://github.com/${GITHUB_REPOSITORY})
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=for-the-badge&logo=docker)](https://github.com/${GITHUB_REPOSITORY}/pkgs/container/torrent-factory)
 
-**Torrent Factory V1.0.9** utilise désormais `mktorrent`, garantissant une stabilité absolue lors du déploiement et de la génération des fichiers.
+**Torrent Factory v1.0.10-test** utilise désormais `mktorrent`, garantissant une stabilité absolue lors du déploiement et de la génération des fichiers.
 
 </div>
 
 ---
 
-## 🚀 Installation V1.0.9
+## 🚀 Installation v1.0.10-test
 
 ```bash
 docker run -d \

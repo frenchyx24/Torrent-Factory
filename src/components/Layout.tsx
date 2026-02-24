@@ -70,8 +70,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
         <div className="mt-auto pt-6 border-t border-white/5">
           <div className="bg-slate-800/50 rounded-xl p-4 text-xs text-slate-500">
-            <p>Version v1.0.9</p>
-            <p className="mt-1">© 2024 Torrent Factory</p>
+            <p>Version v1.0.10-test</p>
+            <p className="mt-1">© 2026 Torrent Factory</p>
           </div>
         </div>
       </aside>

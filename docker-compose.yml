@@ -11,4 +11,6 @@ services:
       - ./data/series:/data/series
       - ./data/movies:/data/movies
       - ./data/torrents:/data/torrents
+    environment:
+      - CONFIG_PATH=/config/config.json
     restart: unless-stopped

@@ -62,11 +62,19 @@ const Torrents = () => {
                 <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 hover:border-indigo-500/50 transition-all group">
                   <div className="flex items-center gap-3 overflow-hidden">
                     <FileText className="w-5 h-5 text-indigo-400 shrink-0" />
-                    <span className="text-slate-300 truncate text-sm">{t}</span>
+                    <div className="truncate">
+                      <div className="text-slate-300 truncate text-sm">{t.name}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">{formatBytes(t.size)} • {formatDate(t.mtime)}</div>
+                    </div>
                   </div>
-                  <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white">
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <a href={`/api/torrents/download?path=${encodeURIComponent(t.path)}`} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white">
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-white" onClick={() => handleDelete(t.path)}>
+                      Suppr
+                    </Button>
+                  </div>
                 </div>
               )) : (
                 <div className="text-center py-10 text-slate-600 text-sm italic">Aucun torrent trouvé.</div>
@@ -85,11 +93,19 @@ const Torrents = () => {
                 <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 hover:border-emerald-500/50 transition-all group">
                   <div className="flex items-center gap-3 overflow-hidden">
                     <FileText className="w-5 h-5 text-emerald-400 shrink-0" />
-                    <span className="text-slate-300 truncate text-sm">{t}</span>
+                    <div className="truncate">
+                      <div className="text-slate-300 truncate text-sm">{t.name}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">{formatBytes(t.size)} • {formatDate(t.mtime)}</div>
+                    </div>
                   </div>
-                  <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white">
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <a href={`/api/torrents/download?path=${encodeURIComponent(t.path)}`} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white">
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-white" onClick={() => handleDelete(t.path)}>
+                      Suppr
+                    </Button>
+                  </div>
                 </div>
               )) : (
                 <div className="text-center py-10 text-slate-600 text-sm italic">Aucun torrent trouvé.</div>
@@ -101,5 +117,31 @@ const Torrents = () => {
     </Layout>
   );
 };
+
+function formatBytes(bytes: number) {
+  if (!bytes) return '0 B';
+  const sizes = ['B','KB','MB','GB','TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
+}
+
+function formatDate(ts: number) {
+  try {
+    const d = new Date(ts * 1000);
+    return d.toLocaleString();
+  } catch (e) { return '' }
+}
+
+async function handleDelete(path: string) {
+  if (!confirm('Supprimer ce fichier .torrent ?')) return;
+  try {
+    const res = await fetch('/api/torrents/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) });
+    if (res.ok) {
+      window.location.reload();
+    } else {
+      alert('Erreur suppression');
+    }
+  } catch (e) { alert('Erreur suppression'); }
+}
 
 export default Torrents;

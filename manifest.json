@@ -1,13 +1,13 @@
 {
   "name": "Torrent Factory",
-  "version": "1.0.9",
+  "version": "1.0.10-test",
   "description": "Générateur automatique de torrents ultra-robuste",
   "author": "Torrent Factory Team",
-  "release_date": "2024-05-23",
+  "release_date": "2026-02-24",
   "features": [
     "Moteur mktorrent ultra-stable",
     "Dockerfile optimisé pour le déploiement",
-    "Interface V1.0.9 synchronisée",
+    "Interface v1.0.10-test synchronisée",
     "Gestion des volumes persistants"
   ]
 }

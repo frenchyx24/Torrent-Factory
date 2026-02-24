@@ -91,7 +91,7 @@ const Settings = () => {
   return (
     <Layout>
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-white">Configuration V1.0.9</h2>
+        <h2 className="text-3xl font-bold text-white">Configuration v1.0.10-test</h2>
         <p className="text-slate-400 mt-1">{t.subtitle}</p>
       </div>
 
@@ -160,7 +160,7 @@ const Settings = () => {
       </div>
 
       <Button onClick={handleSave} disabled={saving} className="w-full mt-8 py-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-xl shadow-indigo-500/20">
-        {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />} ENREGISTRER V1.0.9
+        {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />} ENREGISTRER v1.0.10-test
       </Button>
 
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
