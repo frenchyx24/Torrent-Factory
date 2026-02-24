@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory v1.0.10-test - Production-ready minor fixes
+Torrent Factory v1.0.11-test - Corrections, fiabilisations et améliorations
 """
 
 import os
@@ -13,6 +13,7 @@ import sys
 import logging
 import re
 import subprocess
+import shutil
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
@@ -40,12 +41,39 @@ DEFAULT_CONFIG = {
     "tracker_url": "http://tracker.example.com/announce",
     "private": True,
     "piece_size": 21, # 2^21 = 2MB (mktorrent utilise des puissances de 2)
-    "comment": "Torrent Factory v1.0.10-test",
+    "comment": "Torrent Factory v1.0.11-test",
     "language": "fr"
 }
 
 tasks = []
 logs_list = []
+tasks_lock = threading.Lock()
+
+
+def _tasks_file_path():
+    cfg_path = CONFIG_PATH or 'config.json'
+    cfg_dir = os.path.dirname(cfg_path) or '.'
+    return os.path.join(cfg_dir, 'tasks.json')
+
+
+def load_tasks():
+    global tasks
+    path = _tasks_file_path()
+    try:
+        if os.path.exists(path):
+            with open(path, 'r') as f:
+                tasks = json.load(f)
+    except Exception:
+        logger.exception('Failed to load tasks file')
+
+
+def save_tasks():
+    path = _tasks_file_path()
+    try:
+        with open(path, 'w') as f:
+            json.dump(tasks, f, indent=2)
+    except Exception:
+        logger.exception('Failed to save tasks file')
 
 def add_log(msg, level="info"):
     logs_list.append({"id": str(uuid.uuid4()), "time": time.strftime("%H:%M:%S"), "msg": msg, "level": level})
@@ -102,9 +130,13 @@ def task_processor():
                     if cfg.get('private'): cmd.append("-p")
                     if cfg.get('comment'): cmd.extend(["-c", cfg['comment']])
                     # mktorrent attend une puissance de 2 pour la taille des pièces (ex: 21 pour 2MB)
-                    # On simplifie ici pour la v1.0.10-test
+                    # On simplifie ici pour la v1.0.11
                     cmd.append(t['source_path'])
                     
+                    # Vérifier que mktorrent est disponible
+                    if not shutil.which('mktorrent'):
+                        raise Exception('mktorrent not found in PATH')
+
                     logger.info(f"Execution: {' '.join(cmd)}")
                     try:
                         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
@@ -121,6 +153,13 @@ def task_processor():
                 except Exception as e:
                     t['status'] = 'cancelled'
                     add_log(f"Erreur: {str(e)}", "error")
+                finally:
+                    # sauvegarder l'état des tâches après chaque tentative
+                    try:
+                        with tasks_lock:
+                            save_tasks()
+                    except Exception:
+                        logger.exception('Failed saving tasks in loop')
         time.sleep(2)
 
 @app.route('/api/config', methods=['GET', 'POST'])
@@ -139,33 +178,89 @@ def api_library(lib_type):
         return jsonify([{"name": n, "size": get_readable_size(os.path.join(root, n)), "detected_tag": "MULTI"} for n in sorted(os.listdir(root))])
     except: return jsonify([])
 
+
+def _scan_root(root):
+    items = []
+    try:
+        if not root or not os.path.exists(root):
+            return items
+        for name in sorted(os.listdir(root)):
+            full = os.path.join(root, name)
+            if os.path.isdir(full):
+                items.append({
+                    'name': name,
+                    'size': get_readable_size(full),
+                    'detected_tag': 'MULTI'
+                })
+    except Exception as e:
+        logger.exception('scan error: %s', e)
+    return items
+
+
+@app.route('/api/scan/series', methods=['POST'])
+def api_scan_series():
+    cfg = load_config()
+    root = cfg.get('series_root')
+    items = _scan_root(root)
+    add_log(f"Scan séries exécuté: {len(items)} items", 'info')
+    return jsonify({'status': 'ok', 'items': items})
+
+
+@app.route('/api/scan/movies', methods=['POST'])
+def api_scan_movies():
+    cfg = load_config()
+    root = cfg.get('movies_root')
+    items = _scan_root(root)
+    add_log(f"Scan films exécuté: {len(items)} items", 'info')
+    return jsonify({'status': 'ok', 'items': items})
+
 @app.route('/api/tasks/add', methods=['POST'])
 def api_tasks_add():
-    d, cfg = request.json, load_config()
-    for t in d.get('tasks', []):
-        # Accepter 'séries' ou 'series' côté client et normaliser localement
-        raw_type = (d.get('type') or '').lower()
-        if raw_type in ('séries', 'series', 'serie'):
-            kind = 'series'
-            base = cfg.get('series_root')
-        else:
-            kind = 'movies'
-            base = cfg.get('movies_root')
+    d = request.json or {}
+    cfg = load_config()
+    tasks_added = []
+    raw_type = (d.get('type') or '').lower()
+    if raw_type in ('séries', 'series', 'serie'):
+        kind = 'series'
+        base_root = cfg.get('series_root')
+    else:
+        kind = 'movies'
+        base_root = cfg.get('movies_root')
 
-        tasks.append({
-            "id": str(uuid.uuid4())[:8],
-            "name": t['name'],
-            "source_path": os.path.join(base or '', t['name']),
-            "type": kind,
-            "lang_tag": t.get('lang_tag', 'MULTI'),
-            "status": "running",
-            "progress_item": 0,
-            "created_at": time.strftime("%H:%M")
-        })
-    return jsonify({"status": "ok"})
+    incoming = d.get('tasks') or []
+    if not isinstance(incoming, list) or len(incoming) == 0:
+        return jsonify({'error': 'no tasks provided'}), 400
+
+    with tasks_lock:
+        for t in incoming:
+            name = t.get('name')
+            if not name or not isinstance(name, str):
+                continue
+            src = os.path.join(base_root or '', name)
+            new_task = {
+                'id': str(uuid.uuid4())[:8],
+                'name': name,
+                'source_path': src,
+                'type': kind,
+                'lang_tag': t.get('lang_tag', 'MULTI'),
+                'status': 'running',
+                'progress_item': 0,
+                'created_at': time.strftime('%H:%M')
+            }
+            tasks.append(new_task)
+            tasks_added.append(new_task)
+        try:
+            save_tasks()
+        except Exception:
+            logger.exception('Failed to save tasks after add')
+
+    add_log(f"Ajouté {len(tasks_added)} tâche(s)", 'info')
+    return jsonify({'status': 'ok', 'added': tasks_added})
 
 @app.route('/api/tasks/list')
-def api_tasks_list(): return jsonify(tasks)
+def api_tasks_list():
+    with tasks_lock:
+        return jsonify(tasks)
 
 
 @app.route('/api/tasks/<task_id>')
@@ -175,14 +270,67 @@ def api_tasks_get(task_id):
             return jsonify(t)
     return jsonify({'error': 'not found'}), 404
 
+
+@app.route('/api/tasks/retry', methods=['POST'])
+def api_tasks_retry():
+    data = request.json or {}
+    tid = data.get('id')
+    if not tid:
+        return jsonify({'error': 'missing id'}), 400
+    with tasks_lock:
+        for t in tasks:
+            if t.get('id') == tid:
+                t['status'] = 'running'
+                t['progress_item'] = 0
+                try:
+                    save_tasks()
+                except Exception:
+                    logger.exception('Failed save tasks on retry')
+                return jsonify({'status': 'ok'})
+    return jsonify({'error': 'not found'}), 404
+
+
+@app.route('/api/tasks/delete', methods=['POST'])
+def api_tasks_delete():
+    data = request.json or {}
+    tid = data.get('id')
+    if not tid:
+        return jsonify({'error': 'missing id'}), 400
+    with tasks_lock:
+        global tasks
+        ntasks = [t for t in tasks if t.get('id') != tid]
+        if len(ntasks) == len(tasks):
+            return jsonify({'error': 'not found'}), 404
+        tasks = ntasks
+        try:
+            save_tasks()
+        except Exception:
+            logger.exception('Failed save tasks on delete')
+    return jsonify({'status': 'ok'})
+
 @app.route('/api/tasks/clear')
 def api_tasks_clear():
     global tasks
-    tasks = [t for t in tasks if t['status'] == 'running']
+    with tasks_lock:
+        tasks = [t for t in tasks if t['status'] == 'running']
+        try:
+            save_tasks()
+        except Exception:
+            logger.exception('Failed to save tasks after clear')
     return jsonify({"status": "ok"})
 
 @app.route('/api/logs')
 def api_logs(): return jsonify(logs_list)
+
+
+@app.route('/api/health')
+def api_health():
+    ok = True
+    missing = []
+    if not shutil.which('mktorrent'):
+        ok = False
+        missing.append('mktorrent')
+    return jsonify({'ok': ok, 'missing': missing})
 
 @app.route('/api/drives')
 def api_drives(): return jsonify([{"name": "Racine", "path": "/"}, {"name": "Data", "path": "/data"}])
@@ -283,9 +431,10 @@ def serve(path):
     if path != "" and os.path.exists(fp): return send_from_directory(app.static_folder, path)
     idx = os.path.join(app.static_folder, 'index.html')
     if os.path.exists(idx): return send_from_directory(app.static_folder, 'index.html')
-    return "<h1>v1.0.10-test</h1><p>Build frontend requis.</p>", 200
+    return "<h1>v1.0.11-test</h1><p>Build frontend requis.</p>", 200
 
 if __name__ == '__main__':
     init_folders()
+    load_tasks()
     threading.Thread(target=task_processor, daemon=True).start()
     app.run(host='0.0.0.0', port=5000)
