@@ -3,13 +3,21 @@ FROM node:18-alpine AS frontend-builder
 
 WORKDIR /app
 
-# Copy frontend build files
-COPY package.json pnpm-lock.yaml tsconfig.json vite.config.ts tailwind.config.ts postcss.config.js ./
+# Install pnpm globally
+RUN npm install -g pnpm
+
+# Copy all config files first
+COPY package.json pnpm-lock.yaml ./
+COPY tsconfig*.json ./
+COPY vite.config.ts postcss.config.js tailwind.config.ts ./
+COPY eslint.config.js ./
+
+# Copy source and public directories
 COPY src/ ./src/
 COPY public/ ./public/
 
-# Install pnpm and build dependencies
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+# Install dependencies with frozen lockfile
+RUN pnpm install --frozen-lockfile && pnpm install
 
 # Build frontend to dist/
 RUN pnpm build
