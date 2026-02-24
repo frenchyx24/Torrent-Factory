@@ -26,6 +26,8 @@ const Torrents = () => {
     fetchTorrents();
   }, []);
 
+  const debugUrl = '/api/debug';
+
   return (
     <Layout>
       <div className="flex justify-between items-center mb-8">
@@ -76,8 +78,11 @@ const Torrents = () => {
                     </Button>
                   </div>
                 </div>
-              )) : (
-                <div className="text-center py-10 text-slate-600 text-sm italic">Aucun torrent trouvé.</div>
+              ) : (
+                <div className="text-center py-8 text-slate-600 text-sm italic">
+                  <div>Aucun torrent trouvé.</div>
+                  <a className="text-xs text-indigo-400 mt-2 inline-block" href={debugUrl} target="_blank" rel="noreferrer">Voir le debug</a>
+                </div>
               )}
             </div>
           </div>
@@ -107,8 +112,11 @@ const Torrents = () => {
                     </Button>
                   </div>
                 </div>
-              )) : (
-                <div className="text-center py-10 text-slate-600 text-sm italic">Aucun torrent trouvé.</div>
+              ) : (
+                <div className="text-center py-8 text-slate-600 text-sm italic">
+                  <div>Aucun torrent trouvé.</div>
+                  <a className="text-xs text-emerald-400 mt-2 inline-block" href={debugUrl} target="_blank" rel="noreferrer">Voir le debug</a>
+                </div>
               )}
             </div>
           </div>

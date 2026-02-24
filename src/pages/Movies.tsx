@@ -32,9 +32,17 @@ const Movies = () => {
     setLoading(true);
     try {
       const res = await fetch('/api/scan/movies', { method: 'POST' });
-      if (res.ok) {
-        await loadLibrary(); // On recharge la liste après le scan
-        showSuccess("Scan des films terminé");
+      if (!res.ok) {
+        showError("Erreur serveur pendant le scan des films");
+      } else {
+        const payload = await res.json();
+        if (payload.status !== 'ok') {
+          showError("Scan films retourné avec erreurs");
+        } else {
+          if (Array.isArray(payload.items)) setMovies(payload.items);
+          else await loadLibrary();
+          showSuccess("Scan des films terminé");
+        }
       }
     } catch (e) {
       showError("Erreur lors du scan");
@@ -56,10 +64,18 @@ const Movies = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tasks, type: 'movies' })
       });
-      if (res.ok) {
-        showSuccess(`${tasks.length} film(s) envoyé(s)`);
-        navigate('/tasks');
+      if (!res.ok) {
+        showError('Erreur lors de l\'ajout des tâches');
+        return;
       }
+      const payload = await res.json();
+      const added = Array.isArray(payload.added) ? payload.added : [];
+      if (added.length === 0) {
+        showError('Aucune tâche ajoutée (vérifiez que les sources existent)');
+        return;
+      }
+      showSuccess(`${added.length} film(s) envoyé(s)`);
+      navigate('/tasks');
     } catch (e) {
       showError("Erreur lors du lancement");
     }
@@ -70,6 +86,8 @@ const Movies = () => {
   }, []);
 
   const filteredMovies = movies.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
+
+  const debugUrl = '/api/debug';
 
   return (
     <Layout>

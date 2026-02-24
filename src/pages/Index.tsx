@@ -26,7 +26,8 @@ const Index = () => {
       const data = await res.json();
       setSeries(data);
     } catch (e) {
-      console.error("Erreur chargement bibliothèque");
+      console.error("Erreur chargement bibliothèque", e);
+      showError(lang === 'fr' ? "Erreur chargement bibliothèque" : "Library load error");
     }
   };
 
@@ -43,12 +44,25 @@ const Index = () => {
     setLoading(true);
     try {
       const res = await fetch('/api/scan/series', { method: 'POST' });
-      if (res.ok) {
-        await loadLibrary();
-        showSuccess(lang === 'fr' ? "Scan terminé" : "Scan completed");
+      if (!res.ok) {
+        showError(lang === 'fr' ? "Erreur serveur pendant le scan" : "Scan failed");
+      } else {
+        const payload = await res.json();
+        if (payload.status !== 'ok') {
+          showError(lang === 'fr' ? "Scan retourné avec erreurs" : "Scan returned errors");
+        } else {
+          if (Array.isArray(payload.items)) {
+            setSeries(payload.items);
+          } else {
+            await loadLibrary();
+          }
+          showSuccess(lang === 'fr' ? "Scan terminé" : "Scan completed");
+        }
       }
-    } catch (e) { showError("Error"); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error('fetchSeries error', e);
+      showError(lang === 'fr' ? "Erreur réseau" : "Network error");
+    } finally { setLoading(false); }
   };
 
   const handleGenerate = async (items: any[]) => {
@@ -64,14 +78,23 @@ const Index = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tasks, type: 'series' })
       });
-      if (res.ok) {
-        showSuccess(`${tasks.length} item(s)`);
-        navigate('/tasks');
+      if (!res.ok) {
+        showError('Erreur lors de l\'ajout des tâches');
+        return;
       }
+      const payload = await res.json();
+      const added = Array.isArray(payload.added) ? payload.added : [];
+      if (added.length === 0) {
+        showError('Aucune tâche ajoutée (vérifiez que les sources existent)');
+        return;
+      }
+      showSuccess(`${added.length} item(s) ajoutés`);
+      navigate('/tasks');
     } catch (e) { showError("Error"); }
   };
 
-  const filteredSeries = series.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredSeries = Array.isArray(series) ? series.filter(s => (s.name || '').toLowerCase().includes(search.toLowerCase())) : [];
+  const debugUrl = '/api/debug';
 
   return (
     <Layout>

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory v1.0.11-test - Corrections, fiabilisations et améliorations
+Torrent Factory v1.0.12-test - Corrections, fiabilisations et améliorations
 """
 
 import os
@@ -41,7 +41,7 @@ DEFAULT_CONFIG = {
     "tracker_url": "http://tracker.example.com/announce",
     "private": True,
     "piece_size": 21, # 2^21 = 2MB (mktorrent utilise des puissances de 2)
-    "comment": "Torrent Factory v1.0.11-test",
+    "comment": "Torrent Factory v1.0.12-test",
     "language": "fr"
 }
 
@@ -130,7 +130,7 @@ def task_processor():
                     if cfg.get('private'): cmd.append("-p")
                     if cfg.get('comment'): cmd.extend(["-c", cfg['comment']])
                     # mktorrent attend une puissance de 2 pour la taille des pièces (ex: 21 pour 2MB)
-                    # On simplifie ici pour la v1.0.11
+                    # On simplifie ici pour la v1.0.12
                     cmd.append(t['source_path'])
                     
                     # Vérifier que mktorrent est disponible
@@ -237,6 +237,10 @@ def api_tasks_add():
             if not name or not isinstance(name, str):
                 continue
             src = os.path.join(base_root or '', name)
+            # vérifier que la source existe avant d'ajouter la tâche
+            if not os.path.exists(src):
+                logger.warning('Source not found, skipping task: %s', src)
+                continue
             new_task = {
                 'id': str(uuid.uuid4())[:8],
                 'name': name,
@@ -256,6 +260,49 @@ def api_tasks_add():
 
     add_log(f"Ajouté {len(tasks_added)} tâche(s)", 'info')
     return jsonify({'status': 'ok', 'added': tasks_added})
+
+
+@app.route('/api/debug')
+def api_debug():
+    cfg = load_config()
+    series_root = cfg.get('series_root')
+    movies_root = cfg.get('movies_root')
+    data = {
+        'config': cfg,
+        'tasks': tasks,
+        'logs': logs_list,
+        'series_listing': [],
+        'movies_listing': [],
+        'torrents': {}
+    }
+    try:
+        if series_root and os.path.exists(series_root):
+            data['series_listing'] = sorted(os.listdir(series_root))
+    except Exception as e:
+        data['series_error'] = str(e)
+    try:
+        if movies_root and os.path.exists(movies_root):
+            data['movies_listing'] = sorted(os.listdir(movies_root))
+    except Exception as e:
+        data['movies_error'] = str(e)
+    try:
+        data['torrents'] = {'series': [t['name'] for t in (json.loads(json.dumps(api_torrents_list().get_data())) if False else [])]}
+    except Exception:
+        # fallback: call api_torrents_list logic directly
+        cfg = load_config()
+        series_path = cfg.get('series_out') or ''
+        movies_path = cfg.get('movies_out') or ''
+        def gather_names(path):
+            items = []
+            if not path or not os.path.exists(path):
+                return items
+            for fn in sorted(os.listdir(path)):
+                if fn.endswith('.torrent'):
+                    items.append(fn)
+            return items
+        data['torrents'] = {'series': gather_names(series_path), 'movies': gather_names(movies_path)}
+
+    return jsonify(data)
 
 @app.route('/api/tasks/list')
 def api_tasks_list():
@@ -431,7 +478,7 @@ def serve(path):
     if path != "" and os.path.exists(fp): return send_from_directory(app.static_folder, path)
     idx = os.path.join(app.static_folder, 'index.html')
     if os.path.exists(idx): return send_from_directory(app.static_folder, 'index.html')
-    return "<h1>v1.0.11-test</h1><p>Build frontend requis.</p>", 200
+    return "<h1>v1.0.12-test</h1><p>Build frontend requis.</p>", 200
 
 if __name__ == '__main__':
     init_folders()
