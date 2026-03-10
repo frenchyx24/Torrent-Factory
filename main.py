@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.0.9 - Ultra Robust Build
+Torrent Factory V1.1.0 - The Golden Build
 """
 
 import os
@@ -9,21 +9,26 @@ import json
 import threading
 import time
 import uuid
-import sys
 import logging
 import re
 import subprocess
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configuration des logs
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='dist')
 CORS(app)
 
-CONFIG_PATH = "/config/config.json"
-if not os.path.exists("/config"): CONFIG_PATH = "config.json"
+# Détermination du chemin de config (Docker vs Local)
+CONFIG_DIR = "/config" if os.path.exists("/config") else "config"
+CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
 
 DEFAULT_CONFIG = {
     "series_root": "/data/series",
@@ -32,8 +37,8 @@ DEFAULT_CONFIG = {
     "movies_out": "/data/torrents/movies",
     "tracker_url": "http://tracker.example.com/announce",
     "private": True,
-    "piece_size": 21, # 2^21 = 2MB (mktorrent utilise des puissances de 2)
-    "comment": "Torrent Factory V1.0.9",
+    "piece_size": 21, 
+    "comment": "Torrent Factory V1.1.0",
     "language": "fr"
 }
 
@@ -41,98 +46,141 @@ tasks = []
 logs_list = []
 
 def add_log(msg, level="info"):
-    logs_list.append({"id": str(uuid.uuid4()), "time": time.strftime("%H:%M:%S"), "msg": msg, "level": level})
+    entry = {"id": str(uuid.uuid4()), "time": time.strftime("%H:%M:%S"), "msg": msg, "level": level}
+    logs_list.append(entry)
     if len(logs_list) > 100: logs_list.pop(0)
+    logger.info(f"[{level.upper()}] {msg}")
 
 def init_folders():
-    for f in ["/config", "/data/series", "/data/movies", "/data/torrents/series", "/data/torrents/movies", "dist"]:
-        if not os.path.exists(f): os.makedirs(f, exist_ok=True)
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    cfg = load_config()
+    for path_key in ['series_root', 'series_out', 'movies_root', 'movies_out']:
+        try:
+            os.makedirs(cfg[path_key], exist_ok=True)
+        except Exception as e:
+            logger.warning(f"Impossible de créer {cfg[path_key]}: {e}")
 
 def load_config():
     c = DEFAULT_CONFIG.copy()
     if os.path.exists(CONFIG_PATH):
         try:
-            with open(CONFIG_PATH, 'r') as f: c.update(json.load(f))
-        except: pass
+            with open(CONFIG_PATH, 'r') as f:
+                saved = json.load(f)
+                c.update(saved)
+        except Exception as e:
+            logger.error(f"Erreur lecture config: {e}")
     return c
 
 def get_readable_size(path):
     try:
-        t = 0
-        if os.path.isfile(path): t = os.path.getsize(path)
+        total = 0
+        if os.path.isfile(path):
+            total = os.path.getsize(path)
         else:
-            for dp, _, fns in os.walk(path):
-                for f in fns: t += os.path.getsize(os.path.join(dp, f))
-        for u in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if t < 1024: return f"{t:.2f} {u}"
-            t /= 1024
-    except: return "N/A"
+            for dirpath, _, filenames in os.walk(path):
+                for f in filenames:
+                    fp = os.path.join(dirpath, f)
+                    if os.path.exists(fp):
+                        total += os.path.getsize(fp)
+        
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if total < 1024:
+                return f"{total:.2f} {unit}"
+            total /= 1024
+    except:
+        return "Unknown"
 
 def task_processor():
+    add_log("Démarrage du processeur de tâches V1.1.0", "info")
     while True:
         cfg = load_config()
         for t in tasks:
             if t['status'] == 'running' and t['progress_item'] == 0:
-                t['progress_item'] = 20
+                t['progress_item'] = 10
                 try:
-                    out = cfg['series_out'] if t['type'] == 'séries' else cfg['movies_out']
-                    os.makedirs(out, exist_ok=True)
-                    name = re.sub(r'[\\/*?:"<>|]', '_', t['name'])
-                    dest = os.path.join(out, f"{name} [{t['lang_tag']}].torrent")
+                    out_dir = cfg['series_out'] if t['type'] == 'séries' else cfg['movies_out']
+                    os.makedirs(out_dir, exist_ok=True)
                     
-                    # Construction de la commande mktorrent
-                    # -p : privé, -a : tracker, -o : output, -c : commentaire, -l : piece size
-                    cmd = ["mktorrent", "-a", cfg['tracker_url'], "-o", dest]
+                    # Nettoyage du nom de fichier
+                    safe_name = re.sub(r'[\\/*?:"<>|]', '_', t['name'])
+                    torrent_filename = f"{safe_name} [{t['lang_tag']}].torrent"
+                    dest_path = os.path.join(out_dir, torrent_filename)
+                    
+                    # Commande mktorrent optimisée
+                    cmd = ["mktorrent", "-a", cfg['tracker_url'], "-o", dest_path]
                     if cfg.get('private'): cmd.append("-p")
                     if cfg.get('comment'): cmd.extend(["-c", cfg['comment']])
-                    # mktorrent attend une puissance de 2 pour la taille des pièces (ex: 21 pour 2MB)
-                    # On simplifie ici pour la V1.0.9
+                    # Piece size (puissance de 2)
+                    cmd.extend(["-l", str(cfg.get('piece_size', 21))])
+                    # Source
                     cmd.append(t['source_path'])
                     
-                    logger.info(f"Execution: {' '.join(cmd)}")
-                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    t['progress_item'] = 40
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
                     
                     if result.returncode == 0:
                         t['status'], t['progress_item'] = 'completed', 100
-                        add_log(f"Succès: {name}", "success")
+                        add_log(f"Torrent généré avec succès : {safe_name}", "success")
                     else:
-                        raise Exception(result.stderr or "Erreur mktorrent")
+                        raise Exception(result.stderr or "Erreur inconnue de mktorrent")
                         
                 except Exception as e:
                     t['status'] = 'cancelled'
-                    add_log(f"Erreur: {str(e)}", "error")
-        time.sleep(2)
+                    add_log(f"Échec sur {t['name']} : {str(e)}", "error")
+        time.sleep(1)
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def api_config():
     if request.method == 'POST':
-        with open(CONFIG_PATH, 'w') as f: json.dump(request.json, f, indent=4)
-        return jsonify(request.json)
+        new_cfg = request.json
+        try:
+            with open(CONFIG_PATH, 'w') as f:
+                json.dump(new_cfg, f, indent=4)
+            return jsonify(new_cfg)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
     return jsonify(load_config())
 
 @app.route('/api/library/<lib_type>')
 def api_library(lib_type):
     cfg = load_config()
     root = cfg['series_root'] if lib_type == 'series' else cfg['movies_root']
-    if not os.path.exists(root): return jsonify([])
+    if not os.path.exists(root):
+        return jsonify([])
     try:
-        return jsonify([{"name": n, "size": get_readable_size(os.path.join(root, n)), "detected_tag": "MULTI"} for n in sorted(os.listdir(root))])
-    except: return jsonify([])
+        items = []
+        for n in sorted(os.listdir(root)):
+            if n.startswith('.'): continue
+            full_path = os.path.join(root, n)
+            items.append({
+                "name": n,
+                "size": get_readable_size(full_path),
+                "detected_tag": "MULTI" # Simplifié pour V1.1.0
+            })
+        return jsonify(items)
+    except:
+        return jsonify([])
 
 @app.route('/api/tasks/add', methods=['POST'])
 def api_tasks_add():
-    d, cfg = request.json, load_config()
-    for t in d.get('tasks', []):
-        base = cfg['series_root'] if d['type'] == 'séries' else cfg['movies_root']
+    data, cfg = request.json, load_config()
+    for t in data.get('tasks', []):
+        base_dir = cfg['series_root'] if data['type'] == 'séries' else cfg['movies_root']
         tasks.append({
-            "id": str(uuid.uuid4())[:8], "name": t['name'], "source_path": os.path.join(base, t['name']),
-            "type": d['type'], "lang_tag": t.get('lang_tag', 'MULTI'), "status": "running",
-            "progress_item": 0, "created_at": time.strftime("%H:%M")
+            "id": str(uuid.uuid4())[:8],
+            "name": t['name'],
+            "source_path": os.path.join(base_dir, t['name']),
+            "type": data['type'],
+            "lang_tag": t.get('lang_tag', 'MULTI'),
+            "status": "running",
+            "progress_item": 0,
+            "created_at": time.strftime("%H:%M")
         })
     return jsonify({"status": "ok"})
 
 @app.route('/api/tasks/list')
-def api_tasks_list(): return jsonify(tasks)
+def api_tasks_list():
+    return jsonify(tasks)
 
 @app.route('/api/tasks/clear')
 def api_tasks_clear():
@@ -141,18 +189,8 @@ def api_tasks_clear():
     return jsonify({"status": "ok"})
 
 @app.route('/api/logs')
-def api_logs(): return jsonify(logs_list)
-
-@app.route('/api/drives')
-def api_drives(): return jsonify([{"name": "Racine", "path": "/"}, {"name": "Data", "path": "/data"}])
-
-@app.route('/api/browse')
-def api_browse():
-    p = request.args.get('path', '/')
-    try:
-        items = [{"name": n, "path": os.path.join(p, n)} for n in sorted(os.listdir(p)) if os.path.isdir(os.path.join(p, n))]
-        return jsonify({"current": p, "items": items})
-    except: return jsonify({"current": p, "items": []})
+def api_logs():
+    return jsonify(logs_list)
 
 @app.route('/api/torrents/list')
 def api_torrents_list():
@@ -163,17 +201,37 @@ def api_torrents_list():
             res['series'] = [f for f in sorted(os.listdir(cfg['series_out'])) if f.endswith('.torrent')]
         if os.path.exists(cfg['movies_out']):
             res['movies'] = [f for f in sorted(os.listdir(cfg['movies_out'])) if f.endswith('.torrent')]
-    except: pass
+    except:
+        pass
     return jsonify(res)
+
+@app.route('/api/drives')
+def api_drives():
+    return jsonify([{"name": "Système", "path": "/"}, {"name": "Données", "path": "/data"}])
+
+@app.route('/api/browse')
+def api_browse():
+    p = request.args.get('path', '/')
+    try:
+        items = [{"name": n, "path": os.path.join(p, n)} for n in sorted(os.listdir(p)) if os.path.isdir(os.path.join(p, n))]
+        return jsonify({"current": p, "items": items})
+    except:
+        return jsonify({"current": p, "items": []})
+
+@app.route('/api/health')
+def health():
+    return jsonify({"status": "healthy", "version": "1.1.0"})
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
     fp = os.path.join(app.static_folder, path)
-    if path != "" and os.path.exists(fp): return send_from_directory(app.static_folder, path)
+    if path != "" and os.path.exists(fp):
+        return send_from_directory(app.static_folder, path)
     idx = os.path.join(app.static_folder, 'index.html')
-    if os.path.exists(idx): return send_from_directory(app.static_folder, 'index.html')
-    return "<h1>V1.0.9</h1><p>Build frontend requis.</p>", 200
+    if os.path.exists(idx):
+        return send_from_directory(app.static_folder, 'index.html')
+    return "<h1>Torrent Factory V1.1.0</h1><p>Frontend non trouvé. Veuillez builder l'application.</p>", 200
 
 if __name__ == '__main__':
     init_folders()
