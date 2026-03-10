@@ -24,53 +24,51 @@ const Index = () => {
     try {
       const res = await fetch('/api/library/series');
       const data = await res.json();
-      setSeries(data);
+      setSeries(Array.isArray(data) ? data : []);
     } catch (e) {
-      console.error("Erreur chargement bibliothèque", e);
       showError(lang === 'fr' ? "Erreur chargement bibliothèque" : "Library load error");
     }
   };
 
   useEffect(() => {
-    fetch('/api/config').then(res => res.json()).then(data => {
-      if (data.language) setLang(data.language);
-    });
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(data => {
+        if (data.language) setLang(data.language as Language);
+      })
+      .catch(() => {});
     loadLibrary();
   }, []);
 
   const t = translations[lang]?.index || translations['fr'].index;
+  const filteredSeries = series.filter(s => (s.name || '').toLowerCase().includes(search.toLowerCase()));
 
   const fetchSeries = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/scan/series', { method: 'POST' });
-      if (!res.ok) {
-        showError(lang === 'fr' ? "Erreur serveur pendant le scan" : "Scan failed");
+      const payload = await res.json();
+      if (payload.status === 'ok' && Array.isArray(payload.items)) {
+        setSeries(payload.items);
+        showSuccess(lang === 'fr' ? "Scan terminé" : "Scan completed");
       } else {
-        const payload = await res.json();
-        if (payload.status !== 'ok') {
-          showError(lang === 'fr' ? "Scan retourné avec erreurs" : "Scan returned errors");
-        } else {
-          if (Array.isArray(payload.items)) {
-            setSeries(payload.items);
-          } else {
-            await loadLibrary();
-          }
-          showSuccess(lang === 'fr' ? "Scan terminé" : "Scan completed");
-        }
+        await loadLibrary();
       }
     } catch (e) {
-      console.error('fetchSeries error', e);
       showError(lang === 'fr' ? "Erreur réseau" : "Network error");
     } finally { setLoading(false); }
   };
 
   const handleGenerate = async (items: any[]) => {
-    const tasks = items.map(item => ({
-      ...item,
-      mode: (document.getElementById(`mode-${item.name}`) as HTMLSelectElement)?.value || 'complete',
-      lang_tag: (document.getElementById(`tag-${item.name}`) as HTMLSelectElement)?.value || item.detected_tag
-    }));
+    const tasks = items.map(item => {
+      const modeEl = document.getElementById(`mode-${item.name}`) as HTMLSelectElement;
+      const tagEl = document.getElementById(`tag-${item.name}`) as HTMLSelectElement;
+      return {
+        ...item,
+        mode: modeEl?.value || 'complete',
+        lang_tag: tagEl?.value || item.detected_tag || 'MULTI'
+      };
+    });
 
     try {
       const res = await fetch('/api/tasks/add', {
@@ -78,22 +76,15 @@ const Index = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tasks, type: 'series' })
       });
-      if (!res.ok) {
-        showError('Erreur lors de l\'ajout des tâches');
-        return;
+      if (res.ok) {
+        const payload = await res.json();
+        if (payload.added?.length > 0) {
+          showSuccess(`${payload.added.length} item(s) ajoutés`);
+          navigate('/tasks');
+        }
       }
-      const payload = await res.json();
-      const added = Array.isArray(payload.added) ? payload.added : [];
-      if (added.length === 0) {
-        showError('Aucune tâche ajoutée (vérifiez que les sources existent)');
-        return;
-      }
-      showSuccess(`${added.length} item(s) ajoutés`);
-      navigate('/tasks');
     } catch (e) { showError("Error"); }
   };
-
-  const filteredSeries = Array.isArray(series) ? series.filter(s => (s.name || '').toLowerCase().includes(search.toLowerCase())) : [];
 
   return (
     <Layout>
@@ -136,8 +127,8 @@ const Index = () => {
             <TableRow className="border-white/10 hover:bg-transparent">
               <TableHead className="w-12 text-center">
                 <Checkbox 
-                  className="border-indigo-500/50 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600 bg-transparent" 
-                  onCheckedChange={(checked) => setSelected(checked ? filteredSeries.map(s => s.name) : [])}
+                  className="border-indigo-500/50" 
+                  onCheckedChange={(checked) => setSelected(checked === true ? filteredSeries.map(s => s.name) : [])}
                 />
               </TableHead>
               <TableHead className="text-slate-400 font-semibold py-4">{t.table.name}</TableHead>
@@ -151,9 +142,9 @@ const Index = () => {
               <TableRow key={i} className="border-white/5 hover:bg-white/5 transition-all group">
                 <TableCell className="text-center">
                   <Checkbox 
-                    className="border-indigo-500/50 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600 bg-transparent" 
+                    className="border-indigo-500/50" 
                     checked={selected.includes(item.name)} 
-                    onCheckedChange={(checked) => setSelected(prev => checked ? [...prev, item.name] : prev.filter(n => n !== item.name))}
+                    onCheckedChange={(checked) => setSelected(prev => checked === true ? [...prev, item.name] : prev.filter(n => n !== item.name))}
                   />
                 </TableCell>
                 <TableCell>
