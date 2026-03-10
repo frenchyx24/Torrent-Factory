@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { translations, Language } from '@/lib/i18n';
 
 const Index = () => {
-  const [series, setSeries] = useState([]);
+  const [series, setSeries] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -38,7 +38,7 @@ const Index = () => {
     loadLibrary();
   }, []);
 
-  const t = translations[lang].index;
+  const t = translations[lang]?.index || translations['fr'].index;
 
   const fetchSeries = async () => {
     setLoading(true);
@@ -94,7 +94,6 @@ const Index = () => {
   };
 
   const filteredSeries = Array.isArray(series) ? series.filter(s => (s.name || '').toLowerCase().includes(search.toLowerCase())) : [];
-  const debugUrl = '/api/debug';
 
   return (
     <Layout>
@@ -162,10 +161,14 @@ const Index = () => {
                   <Badge variant="outline" className="mt-1 text-[10px] border-indigo-500/20 text-indigo-400">{item.size}</Badge>
                 </TableCell>
                 <TableCell>
-                  <select id={`tag-${item.name}`} className="bg-slate-950 border border-white/10 text-slate-300 rounded-lg p-1.5 text-xs outline-none">
-                    <option value="MULTI" selected={item.detected_tag === 'MULTI'}>MULTI</option>
-                    <option value="FRENCH" selected={item.detected_tag === 'FRENCH'}>FRENCH</option>
-                    <option value="VOSTFR" selected={item.detected_tag === 'VOSTFR'}>VOSTFR</option>
+                  <select 
+                    id={`tag-${item.name}`} 
+                    defaultValue={item.detected_tag || "MULTI"}
+                    className="bg-slate-950 border border-white/10 text-slate-300 rounded-lg p-1.5 text-xs outline-none"
+                  >
+                    <option value="MULTI">MULTI</option>
+                    <option value="FRENCH">FRENCH</option>
+                    <option value="VOSTFR">VOSTFR</option>
                   </select>
                 </TableCell>
                 <TableCell>

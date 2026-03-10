@@ -12,7 +12,7 @@ import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 
 const Movies = () => {
-  const [movies, setMovies] = useState([]);
+  const [movies, setMovies] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -87,8 +87,6 @@ const Movies = () => {
 
   const filteredMovies = movies.filter(m => m.name.toLowerCase().includes(search.toLowerCase()));
 
-  const debugUrl = '/api/debug';
-
   return (
     <Layout>
       <div className="flex justify-between items-center mb-8">
@@ -152,11 +150,15 @@ const Movies = () => {
                 </TableCell>
                 <TableCell className="font-semibold text-slate-100 group-hover:text-white transition-colors">{movie.name}</TableCell>
                 <TableCell>
-                  <select id={`tag-${movie.name}`} className="bg-slate-950 border border-white/10 text-slate-300 rounded-lg p-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
-                    <option value="MULTI" selected={movie.detected_tag === 'MULTI'}>MULTI</option>
-                    <option value="FRENCH" selected={movie.detected_tag === 'FRENCH'}>FRENCH</option>
-                    <option value="VOSTFR" selected={movie.detected_tag === 'VOSTFR'}>VOSTFR</option>
-                    <option value="VO" selected={movie.detected_tag === 'VO'}>VO</option>
+                  <select 
+                    id={`tag-${movie.name}`} 
+                    defaultValue={movie.detected_tag || "MULTI"}
+                    className="bg-slate-950 border border-white/10 text-slate-300 rounded-lg p-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="MULTI">MULTI</option>
+                    <option value="FRENCH">FRENCH</option>
+                    <option value="VOSTFR">VOSTFR</option>
+                    <option value="VO">VO</option>
                   </select>
                 </TableCell>
                 <TableCell><Badge variant="outline" className="border-white/10 text-slate-400">{movie.size}</Badge></TableCell>

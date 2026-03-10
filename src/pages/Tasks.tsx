@@ -4,11 +4,12 @@ import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { Trash2, XCircle, CheckCircle2, Clock, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const Tasks = () => {
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTasks = async () => {
@@ -74,13 +75,15 @@ const Tasks = () => {
                   <span className="text-xs text-slate-500">{task.created_at} • ID: {task.id}</span>
                 </div>
               </div>
-              {['running', 'pending'].includes(task.status) && (
-                <Button size="sm" variant="destructive" className="bg-rose-600/20 text-rose-500 hover:bg-rose-600/30 border-none" onClick={() => cancelTask(task.id)}>
-                  <XCircle className="w-4 h-4 mr-2" />
-                  ANNULER
-                </Button>
-              )}
-              {task.status === 'completed' && <Badge className="bg-emerald-500/10 text-emerald-500 border-none">TERMINÉ</Badge>}
+              <div className="flex items-center gap-2">
+                {['running', 'pending'].includes(task.status) && (
+                  <Button size="sm" variant="destructive" className="bg-rose-600/20 text-rose-500 hover:bg-rose-600/30 border-none" onClick={() => cancelTask(task.id)}>
+                    <XCircle className="w-4 h-4 mr-2" />
+                    ANNULER
+                  </Button>
+                )}
+                {task.status === 'completed' && <Badge className="bg-emerald-500/10 text-emerald-500 border-none">TERMINÉ</Badge>}
+              </div>
             </div>
 
             <div className="space-y-5">
@@ -88,7 +91,7 @@ const Tasks = () => {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-300 font-medium truncate max-w-[70%]">
-                    {task.current_item_name}
+                    {task.current_item_name || task.name}
                   </span>
                   <span className="font-mono text-indigo-400">{task.progress_item}%</span>
                 </div>
@@ -98,10 +101,10 @@ const Tasks = () => {
               {/* Global Progress */}
               <div className="space-y-2">
                 <div className="flex justify-between text-[10px] uppercase tracking-wider text-slate-500">
-                  <span>Progression Globale ({task.current_item_index})</span>
-                  <span>{task.progress_global}%</span>
+                  <span>Progression Globale ({task.current_item_index || '1/1'})</span>
+                  <span>{task.progress_global || task.progress_item}%</span>
                 </div>
-                <Progress value={task.progress_global} className="h-1 bg-white/5 opacity-50" />
+                <Progress value={task.progress_global || task.progress_item} className="h-1 bg-white/5 opacity-50" />
               </div>
             </div>
           </div>
@@ -115,11 +118,5 @@ const Tasks = () => {
     </Layout>
   );
 };
-
-const Badge = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <span className={cn("px-2 py-1 rounded text-[10px] font-bold border", className)}>
-    {children}
-  </span>
-);
 
 export default Tasks;
