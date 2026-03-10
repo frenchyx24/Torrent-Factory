@@ -26,7 +26,7 @@ const Index = () => {
       const data = await res.json();
       setSeries(Array.isArray(data) ? data : []);
     } catch (e) {
-      showError(lang === 'fr' ? "Erreur chargement bibliothèque" : "Library load error");
+      console.error(e);
     }
   };
 
@@ -34,26 +34,26 @@ const Index = () => {
     fetch('/api/config')
       .then(res => res.json())
       .then(data => {
-        if (data.language) setLang(data.language as Language);
+        if (data && data.language) setLang(data.language as Language);
       })
       .catch(() => {});
     loadLibrary();
   }, []);
 
   const t = translations[lang]?.index || translations['fr'].index;
-  const filteredSeries = series.filter(s => (s.name || '').toLowerCase().includes(search.toLowerCase()));
+  const filteredSeries = Array.isArray(series) ? series.filter(s => (s.name || '').toLowerCase().includes(search.toLowerCase())) : [];
 
   const fetchSeries = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/scan/series', { method: 'POST' });
       const payload = await res.json();
-      if (payload.status === 'ok' && Array.isArray(payload.items)) {
+      if (payload && Array.isArray(payload)) {
+        setSeries(payload);
+      } else if (payload && Array.isArray(payload.items)) {
         setSeries(payload.items);
-        showSuccess(lang === 'fr' ? "Scan terminé" : "Scan completed");
-      } else {
-        await loadLibrary();
       }
+      showSuccess(lang === 'fr' ? "Scan terminé" : "Scan completed");
     } catch (e) {
       showError(lang === 'fr' ? "Erreur réseau" : "Network error");
     } finally { setLoading(false); }
@@ -77,11 +77,8 @@ const Index = () => {
         body: JSON.stringify({ tasks, type: 'series' })
       });
       if (res.ok) {
-        const payload = await res.json();
-        if (payload.added?.length > 0) {
-          showSuccess(`${payload.added.length} item(s) ajoutés`);
-          navigate('/tasks');
-        }
+        showSuccess(lang === 'fr' ? "Tâches ajoutées" : "Tasks added");
+        navigate('/tasks');
       }
     } catch (e) { showError("Error"); }
   };
