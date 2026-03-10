@@ -16,10 +16,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get version from package.json
-        id: package_version
+      - name: Get version from manifest.json
+        id: version
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=$(jq -r .version manifest.json)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Log into registry ghcr.io
@@ -36,7 +36,7 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=latest
-            type=raw,value=v${{ steps.package_version.outputs.version }}
+            type=raw,value=v${{ steps.version.outputs.version }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
