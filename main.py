@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.3.1 - Stable Build
+Torrent Factory V1.0 - Stable Build
 """
 
 import os
@@ -38,7 +38,7 @@ DEFAULT_CONFIG = {
     "tracker_url": "http://tracker.example.com/announce",
     "private": True,
     "piece_size": 21, 
-    "comment": "Torrent Factory V1.3.1 Stable",
+    "comment": "Torrent Factory V1.0 Stable",
     "language": "fr"
 }
 
@@ -83,7 +83,7 @@ def get_readable_size(path):
         return "Unknown"
 
 def task_processor():
-    add_log("Démarrage du processeur Stable V1.3.1", "info")
+    add_log("Démarrage du processeur Stable V1.0", "info")
     while True:
         task_to_process = None
         cfg = load_config()

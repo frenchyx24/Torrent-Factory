@@ -1,9 +1,9 @@
 <div align="center">
 
-# ⚡ Torrent Factory V1.3.1
+# ⚡ Torrent Factory V1.0 Stable
 ### *L'outil ultime d'automatisation pour la création de torrents*
 
-[![Version](https://img.shields.io/badge/version-1.3.1-indigo?style=for-the-badge)](#)
+[![Version](https://img.shields.io/badge/version-1.0--stable-indigo?style=for-the-badge)](#)
 [![Docker](https://img.shields.io/badge/Status-Stable-emerald?style=for-the-badge)](#)
 
 **Torrent Factory** est une solution complète conçue pour automatiser la création de fichiers `.torrent` à grande échelle. Que vous gériez des bibliothèques de films ou des séries entières, cet outil transforme une tâche manuelle fastidieuse en un processus fluide, rapide et monitoré.
