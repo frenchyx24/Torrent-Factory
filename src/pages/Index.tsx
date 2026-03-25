@@ -11,9 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { translations, Language } from '@/lib/i18n';
+import { LibraryItem } from '@/lib/types';
+import { CheckedState } from "@radix-ui/react-checkbox";
 
 const Index = () => {
-  const [series, setSeries] = useState<any[]>([]);
+  const [series, setSeries] = useState<LibraryItem[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -31,44 +33,21 @@ const Index = () => {
   };
 
   useEffect(() => {
-    fetch('/api/config')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.language) setLang(data.language as Language);
-      })
-      .catch(() => {});
+    fetch('/api/config').then(res => res.json()).then(data => {
+      if (data?.language) setLang(data.language as Language);
+    }).catch(() => {});
     loadLibrary();
   }, []);
 
   const t = translations[lang]?.index || translations['fr'].index;
-  const filteredSeries = Array.isArray(series) ? series.filter(s => (s.name || '').toLowerCase().includes(search.toLowerCase())) : [];
+  const filteredSeries = series.filter(s => (s.name || '').toLowerCase().includes(search.toLowerCase()));
 
-  const fetchSeries = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/scan/series', { method: 'POST' });
-      const payload = await res.json();
-      if (payload && Array.isArray(payload)) {
-        setSeries(payload);
-      } else if (payload && Array.isArray(payload.items)) {
-        setSeries(payload.items);
-      }
-      showSuccess(lang === 'fr' ? "Scan terminé" : "Scan completed");
-    } catch (e) {
-      showError(lang === 'fr' ? "Erreur réseau" : "Network error");
-    } finally { setLoading(false); }
-  };
-
-  const handleGenerate = async (items: any[]) => {
-    const tasks = items.map(item => {
-      const modeEl = document.getElementById(`mode-${item.name}`) as HTMLSelectElement;
-      const tagEl = document.getElementById(`tag-${item.name}`) as HTMLSelectElement;
-      return {
-        ...item,
-        mode: modeEl?.value || 'complete',
-        lang_tag: tagEl?.value || item.detected_tag || 'MULTI'
-      };
-    });
+  const handleGenerate = async (items: LibraryItem[]) => {
+    const tasks = items.map(item => ({
+      name: item.name,
+      mode: (document.getElementById(`mode-${item.name}`) as HTMLSelectElement)?.value || 'complete',
+      lang_tag: (document.getElementById(`tag-${item.name}`) as HTMLSelectElement)?.value || item.detected_tag || 'MULTI'
+    }));
 
     try {
       const res = await fetch('/api/tasks/add', {
@@ -91,7 +70,7 @@ const Index = () => {
           <p className="text-slate-400 mt-1">{t.subtitle}</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={fetchSeries} disabled={loading} variant="outline" className="bg-slate-800 border-white/10 hover:bg-slate-700 text-white">
+          <Button onClick={loadLibrary} disabled={loading} variant="outline" className="bg-slate-800 border-white/10 hover:bg-slate-700 text-white">
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
             {t.scan}
           </Button>
@@ -125,7 +104,7 @@ const Index = () => {
               <TableHead className="w-12 text-center">
                 <Checkbox 
                   className="border-indigo-500/50" 
-                  onCheckedChange={(checked) => setSelected(checked === true ? filteredSeries.map(s => s.name) : [])}
+                  onCheckedChange={(checked: CheckedState) => setSelected(checked === true ? filteredSeries.map(s => s.name) : [])}
                 />
               </TableHead>
               <TableHead className="text-slate-400 font-semibold py-4">{t.table.name}</TableHead>
@@ -141,7 +120,7 @@ const Index = () => {
                   <Checkbox 
                     className="border-indigo-500/50" 
                     checked={selected.includes(item.name)} 
-                    onCheckedChange={(checked) => setSelected(prev => checked === true ? [...prev, item.name] : prev.filter(n => n !== item.name))}
+                    onCheckedChange={(checked: CheckedState) => setSelected(prev => checked === true ? [...prev, item.name] : prev.filter(n => n !== item.name))}
                   />
                 </TableCell>
                 <TableCell>
@@ -149,11 +128,7 @@ const Index = () => {
                   <Badge variant="outline" className="mt-1 text-[10px] border-indigo-500/20 text-indigo-400">{item.size}</Badge>
                 </TableCell>
                 <TableCell>
-                  <select 
-                    id={`tag-${item.name}`} 
-                    defaultValue={item.detected_tag || "MULTI"}
-                    className="bg-slate-950 border border-white/10 text-slate-300 rounded-lg p-1.5 text-xs outline-none"
-                  >
+                  <select id={`tag-${item.name}`} defaultValue={item.detected_tag || "MULTI"} className="bg-slate-950 border border-white/10 text-slate-300 rounded-lg p-1.5 text-xs outline-none">
                     <option value="MULTI">MULTI</option>
                     <option value="FRENCH">FRENCH</option>
                     <option value="VOSTFR">VOSTFR</option>
