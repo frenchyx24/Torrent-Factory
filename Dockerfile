@@ -2,14 +2,14 @@
 FROM node:20-slim AS builder
 WORKDIR /app
 
-# On copie uniquement le package.json pour optimiser le cache Docker
+# Optimisation du cache
 COPY package.json ./
 RUN npm install
 
-# Copie du reste du code source
+# Copie du code source frontend
 COPY . .
 
-# Variables d'environnement pour stabiliser le build Vite/Rollup
+# Build de l'application React
 ENV CI=true
 ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
@@ -18,27 +18,30 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
-# Installation des outils système nécessaires (mktorrent natif)
+# Installation des outils système (mktorrent natif)
 RUN apt-get update && apt-get install -y \
     mktorrent \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Installation des dépendances Python backend
+# Installation des dépendances Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copie des fichiers buildés (React) et du code source (Python)
+# Copie des fichiers buildés et du code source
 COPY --from=builder /app/dist ./dist
 COPY main.py manifest.json ./
 
-# Configuration de l'environnement de production
+# AJOUT : Copie du dossier scripts pour les tests E2E et automation
+COPY scripts/ ./scripts/
+RUN chmod +x scripts/*.sh || true
+
+# Configuration de l'environnement
 RUN mkdir -p /config /data/series /data/movies /data/torrents
 ENV CONFIG_PATH=/config/config.json
 ENV FLASK_APP=main.py
 
-# Torrent Factory écoute sur le port 5000
 EXPOSE 5000
 
-# Lancement de l'application (Backend Flask qui sert aussi le Frontend)
+# Lancement
 CMD ["python", "main.py"]
