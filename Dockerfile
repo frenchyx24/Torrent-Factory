@@ -18,10 +18,11 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
-# Installation des outils système (mktorrent natif)
+# Installation des outils système (mktorrent natif, curl, jq)
 RUN apt-get update && apt-get install -y \
     mktorrent \
     curl \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
 # Installation des dépendances Python
@@ -32,7 +33,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=builder /app/dist ./dist
 COPY main.py manifest.json ./
 
-# AJOUT : Copie du dossier scripts pour les tests E2E et automation
+# Copie du dossier scripts pour les tests E2E et automation
 COPY scripts/ ./scripts/
 RUN chmod +x scripts/*.sh || true
 
