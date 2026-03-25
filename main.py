@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.2.0 - Titanium Build
+Torrent Factory V1.3.0 - Titanium Build
 """
 
 import os
@@ -39,7 +39,7 @@ DEFAULT_CONFIG = {
     "tracker_url": "http://tracker.example.com/announce",
     "private": True,
     "piece_size": 21, 
-    "comment": "Torrent Factory V1.2.0",
+    "comment": "Torrent Factory V1.3.0",
     "language": "fr"
 }
 
@@ -52,6 +52,8 @@ def add_log(msg, level="info"):
     logs_list.append(entry)
     if len(logs_list) > 200: logs_list.pop(0)
     logger.info(f"[{level.upper()}] {msg}")
+
+# ... (reste du code identique au précédent pour préserver la logique fixée)
 
 def load_config():
     c = DEFAULT_CONFIG.copy()
@@ -88,12 +90,11 @@ def task_processor():
         task_to_process = None
         cfg = load_config()
         
-        # On cherche une tâche à traiter sans bloquer tout le serveur
         with tasks_lock:
             for t in tasks:
                 if t['status'] == 'running' and t['progress_item'] == 0:
                     task_to_process = t
-                    t['progress_item'] = 5 # Marque le début du traitement
+                    t['progress_item'] = 5
                     break
         
         if task_to_process:
@@ -105,7 +106,6 @@ def task_processor():
                 safe_name = re.sub(r'[\\/*?:"<>|]', '_', t['name'])
                 dest_path = os.path.join(out_dir, f"{safe_name} [{t['lang_tag']}].torrent")
                 
-                # Suppression si existe déjà pour éviter les conflits
                 if os.path.exists(dest_path):
                     os.remove(dest_path)
 
@@ -119,7 +119,6 @@ def task_processor():
                 
                 with tasks_lock: t['progress_item'] = 20
                 
-                # Exécution sans bloquer le Lock global
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
                 
                 with tasks_lock:
