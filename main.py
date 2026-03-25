@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.3.1 - Titanium Build
+Torrent Factory V1.3.1 - Stable Build
 """
 
 import os
@@ -38,7 +38,7 @@ DEFAULT_CONFIG = {
     "tracker_url": "http://tracker.example.com/announce",
     "private": True,
     "piece_size": 21, 
-    "comment": "Torrent Factory V1.3.1",
+    "comment": "Torrent Factory V1.3.1 Stable",
     "language": "fr"
 }
 
@@ -83,7 +83,7 @@ def get_readable_size(path):
         return "Unknown"
 
 def task_processor():
-    add_log("Démarrage du processeur Titanium V1.3.1", "info")
+    add_log("Démarrage du processeur Stable V1.3.1", "info")
     while True:
         task_to_process = None
         cfg = load_config()
@@ -130,8 +130,6 @@ def task_processor():
                     if result.returncode == 0:
                         t['status'], t['progress_item'] = 'completed', 100
                         add_log(f"Torrent créé avec succès : {dest_file}", "success")
-                        if not os.path.exists(dest_path):
-                            add_log(f"Fichier torrent créé mais introuvable à : {dest_path}", "error")
                     else:
                         t['status'] = 'cancelled'
                         add_log(f"Erreur mktorrent pour {t['name']} : {result.stderr}", "error")
@@ -234,7 +232,6 @@ def api_torrents_list():
         items = []
         if path and os.path.exists(path):
             for fn in sorted(os.listdir(path)):
-                # Filtre exclusif pour les fichiers .torrent
                 if not fn.endswith('.torrent'): continue
                 full = os.path.join(path, fn)
                 try:
@@ -243,7 +240,6 @@ def api_torrents_list():
                 except: pass
         return items
     
-    # Sécurité: s'assurer que les dossiers ne se chevauchent pas
     if cfg.get('series_out'): res['series'] = gather(cfg['series_out'])
     if cfg.get('movies_out'): res['movies'] = gather(cfg['movies_out'])
     return jsonify(res)

@@ -27,7 +27,7 @@
 Torrent Factory repose sur un modèle **Client-Serveur** optimisé pour la performance :
 
 1.  **Le Backend (Python/Flask)** : Il agit comme le cerveau. Il scanne vos répertoires de stockage (Movies/Series), gère une file d'attente de tâches et communique avec l'outil système `mktorrent`.
-2.  **Le Moteur Titanium** : C'est un processeur de tâches asynchrone. Contrairement à d'autres outils qui bloquent l'interface pendant la création d'un torrent (ce qui peut prendre du temps pour des fichiers de plusieurs Go), Titanium travaille en arrière-plan. Vous pouvez lancer 50 créations, fermer votre navigateur, et revenir plus tard pour voir le résultat.
+2.  **Le Moteur Stable** : C'est un processeur de tâches asynchrone. Contrairement à d'autres outils qui bloquent l'interface pendant la création d'un torrent (ce qui peut prendre du temps pour des fichiers de plusieurs Go), ce moteur travaille en arrière-plan. Vous pouvez lancer 50 créations, fermer votre navigateur, et revenir plus tard pour voir le résultat.
 3.  **Le Frontend (React)** : Une interface moderne et intuitive qui vous permet de piloter le serveur, de surveiller la progression en temps réel et de gérer vos fichiers créés.
 
 ---
@@ -65,7 +65,7 @@ Rendez-vous dans l'onglet **Réglages**. Vous devez définir 4 chemins essentiel
 ### 2. Lancement d'une Tâche
 - Allez sur la page **Séries** ou **Films**.
 - Sélectionnez les éléments que vous souhaitez transformer en torrent.
-- Cliquez sur **"Tout Générer"**. Les tâches sont immédiatement envoyées au moteur Titanium.
+- Cliquez sur **"Tout Générer"**. Les tâches sont immédiatement envoyées au moteur de création.
 
 ### 3. Suivi et Téléchargement
 - Consultez l'onglet **Tâches** pour voir la progression.

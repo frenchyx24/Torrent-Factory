@@ -90,7 +90,7 @@ const Settings = () => {
   return (
     <Layout>
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-white tracking-tight">Configuration V1.3.0</h2>
+        <h2 className="text-3xl font-bold text-white tracking-tight">Configuration V1.3.1 Stable</h2>
         <p className="text-slate-400 mt-1">{t.subtitle}</p>
       </div>
 
@@ -163,7 +163,7 @@ const Settings = () => {
 
       <Button onClick={handleSave} disabled={saving} className="w-full mt-8 py-7 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg shadow-2xl shadow-indigo-500/20 rounded-2xl transition-all active:scale-[0.98]">
         {saving ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : <Save className="w-6 h-6 mr-2" />} 
-        {t.save} V1.3.0
+        {t.save} V1.3.1 Stable
       </Button>
 
       {/* Folder Picker Modal */}
