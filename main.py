@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.3.0 - Titanium Build
+Torrent Factory V1.3.1 - Titanium Build
 """
 
 import os
@@ -12,7 +12,6 @@ import uuid
 import logging
 import re
 import subprocess
-import shutil
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
@@ -27,7 +26,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, static_folder='dist')
 CORS(app)
 
-# Détermination du chemin de config
+# Chemins de config
 CONFIG_DIR = "/config" if os.path.exists("/config") else "config"
 CONFIG_PATH = os.environ.get('CONFIG_PATH') or os.path.join(CONFIG_DIR, "config.json")
 
@@ -39,7 +38,7 @@ DEFAULT_CONFIG = {
     "tracker_url": "http://tracker.example.com/announce",
     "private": True,
     "piece_size": 21, 
-    "comment": "Torrent Factory V1.3.0",
+    "comment": "Torrent Factory V1.3.1",
     "language": "fr"
 }
 
@@ -52,8 +51,6 @@ def add_log(msg, level="info"):
     logs_list.append(entry)
     if len(logs_list) > 200: logs_list.pop(0)
     logger.info(f"[{level.upper()}] {msg}")
-
-# ... (reste du code identique au précédent pour préserver la logique fixée)
 
 def load_config():
     c = DEFAULT_CONFIG.copy()
@@ -86,6 +83,7 @@ def get_readable_size(path):
         return "Unknown"
 
 def task_processor():
+    add_log("Démarrage du processeur Titanium V1.3.1", "info")
     while True:
         task_to_process = None
         cfg = load_config()
@@ -100,17 +98,23 @@ def task_processor():
         if task_to_process:
             t = task_to_process
             try:
-                out_dir = cfg['series_out'] if t['type'].lower() in ('series', 'séries') else cfg['movies_out']
+                # Détermination du dossier de sortie
+                out_dir = cfg['series_out'] if t['type'].lower() == 'series' else cfg['movies_out']
                 os.makedirs(out_dir, exist_ok=True)
                 
+                # Nettoyage du nom de fichier
                 safe_name = re.sub(r'[\\/*?:"<>|]', '_', t['name'])
-                dest_path = os.path.join(out_dir, f"{safe_name} [{t['lang_tag']}].torrent")
+                dest_file = f"{safe_name} [{t['lang_tag']}].torrent"
+                dest_path = os.path.join(out_dir, dest_file)
                 
-                if os.path.exists(dest_path):
-                    os.remove(dest_path)
+                if not os.path.exists(t['source_path']):
+                    raise Exception(f"Source introuvable : {t['source_path']}")
 
-                add_log(f"Création : {t['name']}...", "info")
+                add_log(f"Début création : {t['name']}", "info")
+                add_log(f"Source: {t['source_path']}", "info")
+                add_log(f"Destination: {dest_path}", "info")
                 
+                # Préparation commande mktorrent
                 cmd = ["mktorrent", "-a", cfg['tracker_url'], "-o", dest_path]
                 if cfg.get('private'): cmd.append("-p")
                 if cfg.get('comment'): cmd.extend(["-c", cfg['comment']])
@@ -119,15 +123,18 @@ def task_processor():
                 
                 with tasks_lock: t['progress_item'] = 20
                 
+                # Exécution sans blocage global
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
                 
                 with tasks_lock:
                     if result.returncode == 0:
                         t['status'], t['progress_item'] = 'completed', 100
-                        add_log(f"Succès : {t['name']}", "success")
+                        add_log(f"Torrent créé avec succès : {dest_file}", "success")
+                        if not os.path.exists(dest_path):
+                            add_log(f"Fichier torrent créé mais introuvable à : {dest_path}", "error")
                     else:
                         t['status'] = 'cancelled'
-                        add_log(f"Erreur mktorrent sur {t['name']} : {result.stderr}", "error")
+                        add_log(f"Erreur mktorrent pour {t['name']} : {result.stderr}", "error")
             except Exception as e:
                 with tasks_lock:
                     t['status'] = 'cancelled'
@@ -227,6 +234,7 @@ def api_torrents_list():
         items = []
         if path and os.path.exists(path):
             for fn in sorted(os.listdir(path)):
+                # Filtre exclusif pour les fichiers .torrent
                 if not fn.endswith('.torrent'): continue
                 full = os.path.join(path, fn)
                 try:
@@ -234,8 +242,10 @@ def api_torrents_list():
                     items.append({'name': fn, 'path': full, 'size': stat.st_size, 'mtime': int(stat.st_mtime)})
                 except: pass
         return items
-    res['series'] = gather(cfg.get('series_out'))
-    res['movies'] = gather(cfg.get('movies_out'))
+    
+    # Sécurité: s'assurer que les dossiers ne se chevauchent pas
+    if cfg.get('series_out'): res['series'] = gather(cfg['series_out'])
+    if cfg.get('movies_out'): res['movies'] = gather(cfg['movies_out'])
     return jsonify(res)
 
 @app.route('/api/torrents/delete', methods=['POST'])
