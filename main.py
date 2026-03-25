@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.1.0 - The Golden Build
+Torrent Factory V1.2.0 - Titanium Build
 """
 
 import os
@@ -39,7 +39,7 @@ DEFAULT_CONFIG = {
     "tracker_url": "http://tracker.example.com/announce",
     "private": True,
     "piece_size": 21, 
-    "comment": "Torrent Factory V1.1.0",
+    "comment": "Torrent Factory V1.2.0",
     "language": "fr"
 }
 
