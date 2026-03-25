@@ -1,97 +1,77 @@
-<div align="center">
-
 # ⚡ Torrent Factory V1.0 Stable
-### *L'outil ultime d'automatisation pour la création de torrents*
 
-[![Version](https://img.shields.io/badge/version-1.0--stable-indigo?style=for-the-badge)](#)
-[![Docker](https://img.shields.io/badge/Status-Stable-emerald?style=for-the-badge)](#)
-
-**Torrent Factory** est une solution complète conçue pour automatiser la création de fichiers `.torrent` à grande échelle. Que vous gériez des bibliothèques de films ou des séries entières, cet outil transforme une tâche manuelle fastidieuse en un processus fluide, rapide et monitoré.
-
-</div>
+[Français](#français) | [English](#english)
 
 ---
 
-## 📖 Sommaire
-1. [Comment ça marche ?](#-comment-ça-marche-)
-2. [Fonctionnalités Clés](#-fonctionnalités-clés)
-3. [Architecture Technique](#-architecture-technique)
-4. [Guide d'Utilisation](#-guide-dutilisation)
-5. [Installation](#-installation)
-6. [Configuration Avancée](#-configuration-avancée)
+<a name="français"></a>
+## 🇫🇷 Français - Documentation Détaillée
 
----
+**Torrent Factory** est une solution "self-hosted" conçue pour automatiser la création de fichiers `.torrent` à grande échelle. Idéal pour les gestionnaires de serveurs de médias ou les créateurs de contenu souhaitant unifier leur flux de travail.
 
-## 🛠 Comment ça marche ?
+### 🛠 Comment ça marche ?
+L'outil repose sur une architecture à trois couches :
+1.  **Interface Utilisateur (React 19)** : Une interface moderne sous Tailwind CSS qui communique via une API REST.
+2.  **API Backend (Python/Flask)** : Gère la logique métier, le scan des bibliothèques et l'orchestration des tâches.
+3.  **Moteur Stable (mktorrent)** : Utilise l'outil système natif `mktorrent` pour une performance brute et une consommation mémoire minimale.
 
-Torrent Factory repose sur un modèle **Client-Serveur** optimisé pour la performance :
+### ✨ Fonctionnalités
+- **Scan Intelligent** : Détecte les nouveaux dossiers et fichiers dans vos racines "Séries" et "Films".
+- **File d'Attente Asynchrone** : Le "Moteur Stable" traite les tâches en arrière-plan. Vous pouvez fermer l'onglet, la création continue sur le serveur.
+- **Modes de Génération (Séries)** : 
+    - *Pack Complet* : Crée un seul torrent pour tout le dossier de la série.
+    - *Par Saison* : Crée un torrent distinct pour chaque sous-dossier de saison.
+    - *Par Épisode* : Crée un torrent pour chaque fichier individuel.
+- **Explorateur de Fichiers** : Un sélecteur de dossiers visuel pour configurer vos chemins sans erreurs de frappe.
+- **Monitoring** : Barre de progression en temps réel et console de logs pour débugger les erreurs (permissions, chemins manquants, etc.).
 
-1.  **Le Backend (Python/Flask)** : Il agit comme le cerveau. Il scanne vos répertoires de stockage (Movies/Series), gère une file d'attente de tâches et communique avec l'outil système `mktorrent`.
-2.  **Le Moteur Stable** : C'est un processeur de tâches asynchrone. Contrairement à d'autres outils qui bloquent l'interface pendant la création d'un torrent (ce qui peut prendre du temps pour des fichiers de plusieurs Go), ce moteur travaille en arrière-plan. Vous pouvez lancer 50 créations, fermer votre navigateur, et revenir plus tard pour voir le résultat.
-3.  **Le Frontend (React)** : Une interface moderne et intuitive qui vous permet de piloter le serveur, de surveiller la progression en temps réel et de gérer vos fichiers créés.
-
----
-
-## ✨ Fonctionnalités Clés
-
-- **Scan Automatique** : Détection instantanée de vos nouveaux contenus dans les dossiers sources.
-- **Moteur Asynchrone** : File d'attente intelligente qui traite les tâches une par une sans jamais faire planter le serveur.
-- **Gestion des Séries** : Modes de génération flexibles (Pack complet, par saison ou par épisode).
-- **Auto-Tagging** : Détection intelligente des tags (FRENCH, MULTI, VOSTFR) basés sur les noms de fichiers.
-- **Monitoring en Temps Réel** : Barre de progression détaillée pour chaque tâche et logs système consultables.
-- **Explorateur de Fichiers Intégré** : Interface visuelle pour choisir vos répertoires directement sur le serveur.
-- **Gestion Multi-Langue** : Support complet du Français, Anglais et Allemand.
-
----
-
-## 🏗 Architecture Technique
-
-- **Frontend** : React 19, TypeScript, Tailwind CSS pour le style, et Radix UI / Shadcn pour les composants.
-- **Backend** : Flask (Python) avec un système de threading pour la gestion asynchrone.
-- **Moteur de Création** : `mktorrent` (natif), reconnu pour sa rapidité et sa faible consommation de ressources.
-- **Dockerisé** : Prêt à être déployé sur n'importe quel NAS (Synology, Unraid) ou serveur Linux.
-
----
-
-## 🚀 Guide d'Utilisation
-
-### 1. Configuration des Chemins
-Rendez-vous dans l'onglet **Réglages**. Vous devez définir 4 chemins essentiels :
-- **Series Root** : Où se trouvent vos dossiers de séries originaux.
-- **Movies Root** : Où se trouvent vos dossiers de films originaux.
-- **Series Out** : Où seront déposés les fichiers `.torrent` des séries.
-- **Movies Out** : Où seront déposés les fichiers `.torrent` des films.
-
-### 2. Lancement d'une Tâche
-- Allez sur la page **Séries** ou **Films**.
-- Sélectionnez les éléments que vous souhaitez transformer en torrent.
-- Cliquez sur **"Tout Générer"**. Les tâches sont immédiatement envoyées au moteur de création.
-
-### 3. Suivi et Téléchargement
-- Consultez l'onglet **Tâches** pour voir la progression.
-- Une fois terminé, allez dans l'onglet **Torrents** pour voir vos fichiers `.torrent` prêts à l'emploi. Vous pouvez les télécharger directement ou les supprimer.
-
----
-
-## 📦 Installation
-
-La méthode recommandée est d'utiliser **Docker** :
-
+### 🚀 Installation (Docker)
 ```bash
 docker run -d \
   --name torrent-factory \
   -p 5000:5000 \
-  -v /votre/chemin/config:/config \
-  -v /votre/chemin/series:/data/series \
-  -v /votre/chemin/movies:/data/movies \
-  -v /votre/chemin/torrents:/data/torrents \
-  votre-image-torrent-factory:latest
+  -v /votre/config:/config \
+  -v /vos/series:/data/series \
+  -v /vos/films:/data/movies \
+  -v /vos/sorties:/data/torrents \
+  votre-image:latest
 ```
 
 ---
 
-## ⚙️ Configuration Avancée
+<a name="english"></a>
+## 🇺🇸 English - Detailed Documentation
 
-- **Tracker URL** : L'adresse de votre tracker privé (ex: `https://tracker.mon-site.com/announce`).
-- **Taille de Pièce** : La puissance de 2 utilisée pour les pièces du torrent. Par défaut `21` (2 Mo), ce qui est le standard pour la plupart des trackers.
-- **Mode Privé** : Si activé, le flag "private" sera ajouté au torrent pour empêcher l'échange de pairs (PEX) en dehors du tracker.
+**Torrent Factory** is a self-hosted solution designed to automate the creation of `.torrent` files at scale. Perfect for media server managers or content creators looking to unify their workflow.
+
+### 🛠 How it works
+The tool is built on a three-layer architecture:
+1.  **User Interface (React 19)**: A modern interface using Tailwind CSS that communicates via a REST API.
+2.  **Backend API (Python/Flask)**: Handles business logic, library scanning, and task orchestration.
+3.  **Stable Engine (mktorrent)**: Uses the native `mktorrent` system tool for raw performance and minimal memory footprint.
+
+### ✨ Key Features
+- **Smart Scanning**: Instantly detects new folders and files in your "Series" and "Movies" roots.
+- **Asynchronous Queue**: The "Stable Engine" processes tasks in the background. You can close the tab, and the creation continues on the server.
+- **Generation Modes (Series)**: 
+    - *Complete Pack*: Creates one torrent for the entire series folder.
+    - *By Season*: Creates a separate torrent for each season sub-folder.
+    - *By Episode*: Creates a torrent for every single file.
+- **File Explorer**: A visual folder picker to configure your paths without typing errors.
+- **Monitoring**: Real-time progress bar and log console to debug errors (permissions, missing paths, etc.).
+
+### ⚙️ Configuration
+- **Tracker URL**: Set your private tracker announce URL.
+- **Piece Size**: Default is 21 (2MB), optimized for most private trackers.
+- **Private Mode**: Automatically sets the "private" flag to prevent DHT/PEX leaks.
+
+### 🚀 Deployment (Docker)
+```bash
+docker run -d \
+  --name torrent-factory \
+  -p 5000:5000 \
+  -v /your/config:/config \
+  -v /your/series:/data/series \
+  -v /your/movies:/data/movies \
+  -v /your/outputs:/data/torrents \
+  your-image:latest

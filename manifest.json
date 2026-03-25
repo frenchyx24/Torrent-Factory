@@ -1,13 +1,13 @@
 {
   "name": "Torrent Factory",
   "version": "1.0",
-  "description": "Générateur automatique de torrents ultra-robuste avec moteur Stable optimisé",
+  "description": "Système professionnel de génération de torrents ultra-robuste",
   "author": "Indie Developer",
   "release_date": "2024-05-26",
   "features": [
-    "Moteur Stable asynchrone (V1.0)",
-    "Traitement parallèle sans blocage",
-    "Interface responsive et multilingue",
-    "Stabilité de build Docker et CI/CD garantie"
+    "Moteur Stable natif (V1.0)",
+    "Gestion asynchrone des tâches",
+    "Interface bilingue",
+    "Explorateur de fichiers intégré"
   ]
 }
