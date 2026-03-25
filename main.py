@@ -85,35 +85,56 @@ def get_readable_size(path):
 
 def task_processor():
     while True:
+        task_to_process = None
         cfg = load_config()
+        
+        # On cherche une tâche à traiter sans bloquer tout le serveur
         with tasks_lock:
             for t in tasks:
                 if t['status'] == 'running' and t['progress_item'] == 0:
-                    t['progress_item'] = 10
-                    try:
-                        out_dir = cfg['series_out'] if t['type'].lower() in ('series', 'séries') else cfg['movies_out']
-                        os.makedirs(out_dir, exist_ok=True)
-                        safe_name = re.sub(r'[\\/*?:"<>|]', '_', t['name'])
-                        dest_path = os.path.join(out_dir, f"{safe_name} [{t['lang_tag']}].torrent")
-                        
-                        cmd = ["mktorrent", "-a", cfg['tracker_url'], "-o", dest_path]
-                        if cfg.get('private'): cmd.append("-p")
-                        if cfg.get('comment'): cmd.extend(["-c", cfg['comment']])
-                        cmd.extend(["-l", str(cfg.get('piece_size', 21))])
-                        cmd.append(t['source_path'])
-                        
-                        t['progress_item'] = 40
-                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
-                        
-                        if result.returncode == 0:
-                            t['status'], t['progress_item'] = 'completed', 100
-                            add_log(f"Succès : {safe_name}", "success")
-                        else:
-                            raise Exception(result.stderr or "Erreur mktorrent")
-                    except Exception as e:
+                    task_to_process = t
+                    t['progress_item'] = 5 # Marque le début du traitement
+                    break
+        
+        if task_to_process:
+            t = task_to_process
+            try:
+                out_dir = cfg['series_out'] if t['type'].lower() in ('series', 'séries') else cfg['movies_out']
+                os.makedirs(out_dir, exist_ok=True)
+                
+                safe_name = re.sub(r'[\\/*?:"<>|]', '_', t['name'])
+                dest_path = os.path.join(out_dir, f"{safe_name} [{t['lang_tag']}].torrent")
+                
+                # Suppression si existe déjà pour éviter les conflits
+                if os.path.exists(dest_path):
+                    os.remove(dest_path)
+
+                add_log(f"Création : {t['name']}...", "info")
+                
+                cmd = ["mktorrent", "-a", cfg['tracker_url'], "-o", dest_path]
+                if cfg.get('private'): cmd.append("-p")
+                if cfg.get('comment'): cmd.extend(["-c", cfg['comment']])
+                cmd.extend(["-l", str(cfg.get('piece_size', 21))])
+                cmd.append(t['source_path'])
+                
+                with tasks_lock: t['progress_item'] = 20
+                
+                # Exécution sans bloquer le Lock global
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+                
+                with tasks_lock:
+                    if result.returncode == 0:
+                        t['status'], t['progress_item'] = 'completed', 100
+                        add_log(f"Succès : {t['name']}", "success")
+                    else:
                         t['status'] = 'cancelled'
-                        add_log(f"Erreur {t['name']} : {str(e)}", "error")
-        time.sleep(2)
+                        add_log(f"Erreur mktorrent sur {t['name']} : {result.stderr}", "error")
+            except Exception as e:
+                with tasks_lock:
+                    t['status'] = 'cancelled'
+                add_log(f"Crash tâche {t['name']} : {str(e)}", "error")
+        
+        time.sleep(1)
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def api_config():
@@ -130,10 +151,12 @@ def api_library(lib_type):
     root = cfg['series_root'] if lib_type == 'series' else cfg['movies_root']
     if not os.path.exists(root): return jsonify([])
     items = []
-    for n in sorted(os.listdir(root)):
-        if n.startswith('.'): continue
-        full = os.path.join(root, n)
-        items.append({"name": n, "size": get_readable_size(full), "detected_tag": "MULTI"})
+    try:
+        for n in sorted(os.listdir(root)):
+            if n.startswith('.'): continue
+            full = os.path.join(root, n)
+            items.append({"name": n, "size": get_readable_size(full), "detected_tag": "MULTI"})
+    except: pass
     return jsonify(items)
 
 @app.route('/api/scan/<lib_type>', methods=['POST'])
@@ -160,7 +183,8 @@ def api_tasks_add():
 
 @app.route('/api/tasks/list')
 def api_tasks_list():
-    return jsonify(tasks)
+    with tasks_lock:
+        return jsonify(tasks)
 
 @app.route('/api/tasks/cancel', methods=['POST'])
 def api_tasks_cancel():
@@ -206,8 +230,10 @@ def api_torrents_list():
             for fn in sorted(os.listdir(path)):
                 if not fn.endswith('.torrent'): continue
                 full = os.path.join(path, fn)
-                stat = os.stat(full)
-                items.append({'name': fn, 'path': full, 'size': stat.st_size, 'mtime': int(stat.st_mtime)})
+                try:
+                    stat = os.stat(full)
+                    items.append({'name': fn, 'path': full, 'size': stat.st_size, 'mtime': int(stat.st_mtime)})
+                except: pass
         return items
     res['series'] = gather(cfg.get('series_out'))
     res['movies'] = gather(cfg.get('movies_out'))
@@ -220,6 +246,13 @@ def api_torrents_delete():
         os.remove(p)
         return jsonify({'status': 'ok'})
     return jsonify({'error': 'not found'}), 404
+
+@app.route('/api/torrents/download')
+def api_torrents_download():
+    p = request.args.get('path')
+    if p and os.path.exists(p):
+        return send_from_directory(os.path.dirname(p), os.path.basename(p), as_attachment=True)
+    return "Not found", 404
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
