@@ -1,13 +1,13 @@
 {
   "name": "Torrent Factory",
-  "version": "1.0",
-  "description": "Système professionnel de génération de torrents ultra-robuste",
+  "version": "1.1",
+  "description": "Système professionnel de génération de torrents - Édition Pro NFO",
   "author": "Indie Developer",
-  "release_date": "2024-05-26",
+  "release_date": "2024-05-27",
   "features": [
-    "Moteur Stable natif (V1.0)",
-    "Gestion asynchrone des tâches",
-    "Interface bilingue",
-    "Explorateur de fichiers intégré"
+    "Moteur NFO 1.1 (Mediainfo JSON + TMDb Pro)",
+    "Gestion multi-thread dynamique",
+    "Interface bilingue réactive",
+    "Explorateur de fichiers natif"
   ]
 }

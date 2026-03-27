@@ -10,7 +10,8 @@ import {
   Terminal, 
   Settings, 
   Zap,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { translations, Language } from '@/lib/i18n';
@@ -40,13 +41,16 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   ];
 
   return (
-    <div className="flex h-screen bg-[#0f172a] text-slate-200 overflow-hidden font-sans">
-      <aside className="w-64 border-r border-white/10 bg-slate-900/50 backdrop-blur-xl flex flex-col p-6">
+    <div className="flex h-screen bg-[#020617] text-slate-200 overflow-hidden font-sans">
+      <aside className="w-64 border-r border-white/10 bg-slate-900/40 backdrop-blur-2xl flex flex-col p-6">
         <div className="flex items-center gap-3 mb-10 px-2">
           <div className="bg-indigo-600 p-2 rounded-lg shadow-lg shadow-indigo-500/20">
             <Zap className="w-6 h-6 text-white fill-white" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-white">Torrent Factory</h1>
+          <div>
+            <h1 className="text-lg font-bold tracking-tight text-white leading-none">Torrent Factory</h1>
+            <span className="text-[10px] text-indigo-400 font-bold tracking-widest uppercase">Version 1.1 Pro</span>
+          </div>
         </div>
 
         <nav className="flex-1 space-y-1">
@@ -72,14 +76,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         </nav>
 
         <div className="mt-auto pt-6 border-t border-white/5">
-          <div className="bg-slate-800/50 rounded-xl p-4 text-xs text-slate-500">
-            <p>Version v1.0 Stable</p>
-            <p className="mt-1">© 2024 Torrent Factory</p>
+          <div className="bg-slate-900/50 rounded-xl p-4 border border-white/5">
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldCheck className="w-3 h-3 text-emerald-500" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Status: Stable</span>
+            </div>
+            <p className="text-[10px] text-slate-500">© 2024 Torrent Factory V1.1</p>
           </div>
         </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_10%_20%,rgba(99,102,241,0.05)_0%,transparent_40%),radial-gradient(circle_at_90%_80%,rgba(16,185,129,0.03)_0%,transparent_40%)]">
+      <main className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_10%_20%,rgba(99,102,241,0.03)_0%,transparent_40%),radial-gradient(circle_at_90%_80%,rgba(16,185,129,0.02)_0%,transparent_40%)]">
         <div className="max-w-7xl mx-auto p-8">
           {children}
         </div>

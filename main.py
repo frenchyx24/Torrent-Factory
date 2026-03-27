@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Torrent Factory V1.0 - Stable Build
-Générateur NFO Professionnel (Mediainfo JSON + TMDb)
+Torrent Factory V1.1 - Pro Engine
+Générateur NFO Haute Précision (Mediainfo JSON + TMDb)
 """
 
 import os
@@ -36,7 +36,7 @@ DEFAULT_CONFIG = {
     "tracker_url": "http://tracker.example.com/announce",
     "private": True,
     "piece_size": 21, 
-    "comment": "Torrent Factory V1.0 Stable",
+    "comment": "Torrent Factory V1.1 Pro Engine",
     "language": "fr",
     "max_workers": 2,
     "enable_nfo": True,
@@ -79,14 +79,13 @@ def fetch_tmdb_info(name, api_key):
         res = requests.get(url, timeout=5).json()
         if res.get('results'):
             item_id = res['results'][0]['id']
-            # Get full details
             details = requests.get(f"https://api.themoviedb.org/3/{search_type}/{item_id}?api_key={api_key}&language=fr-FR").json()
             return details
     except: pass
     return None
 
 def generate_pro_nfo(source_path, dest_nfo_path, cfg):
-    """Génère un NFO de qualité professionnelle avec Mediainfo et TMDb."""
+    """Génère un NFO professionnel V1.1."""
     try:
         target = source_path
         if os.path.isdir(source_path):
@@ -98,62 +97,58 @@ def generate_pro_nfo(source_path, dest_nfo_path, cfg):
             if not video_files: return False
             target = video_files[0]
 
-        add_log(f"Analyse Mediainfo pour {os.path.basename(target)}", "info")
-        # On utilise JSON pour avoir un parsing fiable des flux
+        add_log(f"Scan V1.1 Mediainfo : {os.path.basename(target)}", "info")
         result = subprocess.run(["mediainfo", "--Output=JSON", target], capture_output=True, text=True)
         if result.returncode != 0: return False
         
         mi_data = json.loads(result.stdout)
         tracks = mi_data.get('media', {}).get('track', [])
-        
-        # Récupération infos TMDb
         tmdb = fetch_tmdb_info(os.path.basename(source_path), cfg.get('tmdb_api_key'))
         
-        nfo_content = "╔════════════════════════════════════════════════════════════════════════╗\n"
-        nfo_content += f"║  TORRENT FACTORY V1.0 - PROFESSIONAL NFO GENERATOR                     ║\n"
-        nfo_content += "╚════════════════════════════════════════════════════════════════════════╝\n\n"
+        nfo = "╔════════════════════════════════════════════════════════════════════════╗\n"
+        nfo += f"║  TORRENT FACTORY V1.1 - PRO NFO ENGINE                                 ║\n"
+        nfo += "╚════════════════════════════════════════════════════════════════════════╝\n\n"
 
         if tmdb:
-            nfo_content += f" [ INFORMATIONS GÉNÉRALES ]\n"
-            nfo_content += f" ❯ TITRE       : {tmdb.get('title') or tmdb.get('name')}\n"
+            nfo += f" [ INFORMATIONS GÉNÉRALES ]\n"
+            nfo += f" ❯ TITRE       : {tmdb.get('title') or tmdb.get('name')}\n"
             if tmdb.get('release_date') or tmdb.get('first_air_date'):
-                nfo_content += f" ❯ ANNÉE       : {(tmdb.get('release_date') or tmdb.get('first_air_date'))[:4]}\n"
+                nfo += f" ❯ ANNÉE       : {(tmdb.get('release_date') or tmdb.get('first_air_date'))[:4]}\n"
             if tmdb.get('genres'):
-                nfo_content += f" ❯ GENRE       : {', '.join([g['name'] for g in tmdb['genres']])}\n"
+                nfo += f" ❯ GENRE       : {', '.join([g['name'] for g in tmdb['genres']])}\n"
             if tmdb.get('vote_average'):
-                nfo_content += f" ❯ NOTE IMDb   : {tmdb['vote_average']}/10\n"
+                nfo += f" ❯ NOTE IMDb   : {tmdb['vote_average']}/10\n"
             if tmdb.get('overview'):
-                nfo_content += f"\n [ SYNOPSIS ]\n {tmdb['overview']}\n"
-            nfo_content += "\n" + "─" * 74 + "\n\n"
+                nfo += f"\n [ SYNOPSIS ]\n {tmdb['overview']}\n"
+            nfo += "\n" + "─" * 74 + "\n\n"
 
-        # Analyse Technique via Mediainfo
         for track in tracks:
             t_type = track.get('@type')
             if t_type == 'General':
-                nfo_content += " [ FICHIER ]\n"
-                nfo_content += f" ❯ Format      : {track.get('Format')} / {track.get('FileSize_String')}\n"
-                nfo_content += f" ❯ Durée       : {track.get('Duration_String3')}\n"
-                nfo_content += f" ❯ Bitrate     : {track.get('OverallBitRate_String')}\n"
+                nfo += " [ FICHIER ]\n"
+                nfo += f" ❯ Format      : {track.get('Format')} / {track.get('FileSize_String')}\n"
+                nfo += f" ❯ Durée       : {track.get('Duration_String3')}\n"
+                nfo += f" ❯ Bitrate     : {track.get('OverallBitRate_String')}\n"
             elif t_type == 'Video':
-                nfo_content += "\n [ VIDÉO ]\n"
-                nfo_content += f" ❯ Codec       : {track.get('Format')} {track.get('Format_Profile', '')}\n"
-                nfo_content += f" ❯ Résolution  : {track.get('Width')}x{track.get('Height')} ({track.get('DisplayAspectRatio_String')})\n"
-                nfo_content += f" ❯ Frame Rate  : {track.get('FrameRate')} FPS\n"
-                nfo_content += f" ❯ Bitrate     : {track.get('BitRate_String')}\n"
+                nfo += "\n [ VIDÉO ]\n"
+                nfo += f" ❯ Codec       : {track.get('Format')} {track.get('Format_Profile', '')} ({track.get('CodecID_Description', '')})\n"
+                nfo += f" ❯ Résolution  : {track.get('Width')}x{track.get('Height')} ({track.get('DisplayAspectRatio_String')})\n"
+                nfo += f" ❯ Frame Rate  : {track.get('FrameRate')} FPS\n"
+                nfo += f" ❯ Bit Depth   : {track.get('BitDepth_String', '8 bits')}\n"
+                nfo += f" ❯ Chroma      : {track.get('ChromaSubsampling', '4:2:0')}\n"
+                nfo += f" ❯ Bitrate     : {track.get('BitRate_String')}\n"
             elif t_type == 'Audio':
-                nfo_content += f"\n [ AUDIO {track.get('StreamOrder', '')} ]\n"
-                nfo_content += f" ❯ Langue      : {track.get('Language_String', 'Inconnu')}\n"
-                nfo_content += f" ❯ Codec       : {track.get('Format')} {track.get('Format_Profile', '')}\n"
-                nfo_content += f" ❯ Canaux      : {track.get('Channels')} ({track.get('ChannelLayout', '')})\n"
+                nfo += f"\n [ AUDIO {track.get('StreamOrder', '')} ]\n"
+                nfo += f" ❯ Langue      : {track.get('Language_String', 'Inconnu')}\n"
+                nfo += f" ❯ Codec       : {track.get('Format')} {track.get('Format_Profile', '')}\n"
+                nfo += f" ❯ Canaux      : {track.get('Channels')} ({track.get('ChannelLayout', '')})\n"
             elif t_type == 'Text':
-                nfo_content += f"\n [ SOUS-TITRE ]\n"
-                nfo_content += f" ❯ Langue      : {track.get('Language_String', 'Inconnu')} ({track.get('Format')})\n"
+                nfo += f"\n [ SOUS-TITRE ]\n"
+                nfo += f" ❯ Langue      : {track.get('Language_String', 'Inconnu')} ({track.get('Format')})\n"
 
-        with open(dest_nfo_path, "w", encoding="utf-8") as f:
-            f.write(nfo_content)
+        with open(dest_nfo_path, "w", encoding="utf-8") as f: f.write(nfo)
         return True
-    except Exception as e:
-        add_log(f"Erreur NFO : {str(e)}", "error")
+    except Exception as e: add_log(f"Erreur NFO V1.1 : {str(e)}", "error")
     return False
 
 def process_single_task(task_id):
@@ -176,16 +171,13 @@ def process_single_task(task_id):
         dest_torrent = os.path.join(out_dir, f"{base_filename}.torrent")
         dest_nfo = os.path.join(out_dir, f"{base_filename}.nfo")
 
-        if not os.path.exists(t['source_path']):
-            raise Exception("Source introuvable")
+        if not os.path.exists(t['source_path']): raise Exception("Source introuvable")
 
-        # 1. Génération du NFO (Priorité)
         if cfg.get('enable_nfo'):
-            with tasks_lock: t['progress_item'] = 10
+            with tasks_lock: t['progress_item'] = 15
             generate_pro_nfo(t['source_path'], dest_nfo, cfg)
 
-        # 2. Création du Torrent
-        with tasks_lock: t['progress_item'] = 30
+        with tasks_lock: t['progress_item'] = 40
         cmd = ["mktorrent", "-a", cfg['tracker_url'], "-o", dest_torrent]
         if cfg.get('private'): cmd.append("-p")
         if cfg.get('comment'): cmd.extend(["-c", cfg['comment']])
@@ -198,16 +190,16 @@ def process_single_task(task_id):
         with tasks_lock:
             if result.returncode == 0:
                 t['status'], t['progress_item'] = 'completed', 100
-                add_log(f"Succès : {t['name']}", "success")
+                add_log(f"Terminé : {t['name']}", "success")
             else:
                 t['status'] = 'cancelled'
-                add_log(f"Erreur mktorrent {t['name']} : {result.stderr}", "error")
+                add_log(f"Erreur mktorrent : {result.stderr}", "error")
     except Exception as e:
         with tasks_lock: t['status'] = 'cancelled'
-        add_log(f"Crash {t['name']} : {str(e)}", "error")
+        add_log(f"Crash tâche : {str(e)}", "error")
 
 def worker_manager():
-    add_log("Moteur Stable V1.0 Multi-thread activé", "info")
+    add_log("Moteur Stable V1.1 Multi-thread en attente", "info")
     last_workers_count = 0
     executor = None
 
@@ -219,26 +211,23 @@ def worker_manager():
             if executor: executor.shutdown(wait=False)
             executor = ThreadPoolExecutor(max_workers=current_max_workers)
             last_workers_count = current_max_workers
-            add_log(f"Configuration : {current_max_workers} tâches simultanées", "info")
+            add_log(f"Capacité de traitement : {current_max_workers} tasks/parallel", "info")
 
-        pending_tasks = []
+        pending_ids = []
         with tasks_lock:
             for t in tasks:
                 if t['status'] == 'running' and t['progress_item'] == 0:
                     t['progress_item'] = 1 
-                    pending_tasks.append(t['id'])
+                    pending_ids.append(t['id'])
         
-        for tid in pending_tasks:
-            executor.submit(process_single_task, tid)
-            
+        for tid in pending_ids: executor.submit(process_single_task, tid)
         time.sleep(2)
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def api_config():
     if request.method == 'POST':
         new_cfg = request.json
-        with open(CONFIG_PATH, 'w') as f:
-            json.dump(new_cfg, f, indent=4)
+        with open(CONFIG_PATH, 'w') as f: json.dump(new_cfg, f, indent=4)
         return jsonify(new_cfg)
     return jsonify(load_config())
 
@@ -251,8 +240,7 @@ def api_library(lib_type):
     try:
         for n in sorted(os.listdir(root)):
             if n.startswith('.'): continue
-            full = os.path.join(root, n)
-            items.append({"name": n, "size": "Scan...", "detected_tag": "MULTI"})
+            items.append({"name": n, "size": "V1.1", "detected_tag": "MULTI"})
     except: pass
     return jsonify(items)
 

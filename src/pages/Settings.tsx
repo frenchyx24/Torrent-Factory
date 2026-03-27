@@ -68,7 +68,7 @@ const Settings = () => {
         body: JSON.stringify(config)
       });
       if (res.ok) {
-        showSuccess(config.language === 'fr' ? "Configuration enregistrée" : "Configuration saved");
+        showSuccess(config.language === 'fr' ? "Configuration V1.1 enregistrée" : "V1.1 Configuration saved");
         setTimeout(() => window.location.reload(), 500);
       }
     } catch (e) { showError("Erreur de sauvegarde"); }
@@ -83,12 +83,11 @@ const Settings = () => {
   return (
     <Layout>
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-white tracking-tight">Configuration V1.0 Stable</h2>
-        <p className="text-slate-400 mt-1">{t.subtitle}</p>
+        <h2 className="text-3xl font-bold text-white tracking-tight">Configuration V1.1 Pro</h2>
+        <p className="text-slate-400 mt-1">Gérez vos paramètres avancés et votre moteur NFO haute précision.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Langue */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md lg:col-span-2">
           <CardHeader><CardTitle className="text-white flex items-center gap-2 text-lg"><Languages className="w-5 h-5 text-indigo-400" />{t.sections.language}</CardTitle></CardHeader>
           <CardContent>
@@ -110,9 +109,8 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* TMDb Integration */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md lg:col-span-2">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2 text-lg"><Key className="w-5 h-5 text-indigo-400" />Intégration TMDb (Metadata)</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-white flex items-center gap-2 text-lg"><Key className="w-5 h-5 text-indigo-400" />Intégration TMDb (Metadata Pro)</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2">
               <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider opacity-70">Clé API The Movie Database</Label>
@@ -122,12 +120,11 @@ const Settings = () => {
                 value={config.tmdb_api_key} 
                 onChange={(e) => setConfig({...config, tmdb_api_key: e.target.value})}
               />
-              <p className="text-[11px] text-slate-500 mt-2">Nécessaire pour récupérer Genre, Synopsis et Notes dans le fichier .nfo</p>
+              <p className="text-[11px] text-slate-500 mt-2">Permet d'extraire Genre, Synopsis, Année et Note IMDb pour vos fichiers .nfo</p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Répertoires */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md">
           <CardHeader><CardTitle className="text-white flex items-center gap-2 text-lg"><FolderOpen className="w-5 h-5 text-indigo-400" />{t.sections.dirs}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -143,17 +140,16 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Paramètres Performance & NFO */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2 text-lg"><Zap className="w-5 h-5 text-indigo-400" />{t.sections.system}</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-white flex items-center gap-2 text-lg"><Zap className="w-5 h-5 text-indigo-400" />Moteur Pro V1.1</CardTitle></CardHeader>
           <CardContent className="space-y-4">
              <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider opacity-70">{t.fields.workers}</Label>
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider opacity-70">Parallel Workers</Label>
                 <Input type="number" min="1" max="10" className="bg-slate-950/50 border-white/10 text-white h-9" value={config.max_workers} onChange={(e) => setConfig({...config, max_workers: parseInt(e.target.value) || 2})} />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider opacity-70">{t.options.audio}</Label>
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider opacity-70">Génération NFO</Label>
                 <div className="flex items-center h-9">
                   <Switch 
                     checked={config.enable_nfo} 
@@ -173,10 +169,9 @@ const Settings = () => {
 
       <Button onClick={handleSave} disabled={saving} className="w-full mt-8 py-7 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg shadow-2xl shadow-indigo-500/20 rounded-2xl transition-all">
         {saving ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : <Save className="w-6 h-6 mr-2" />} 
-        {t.save} V1.0 Stable
+        APPLIQUER LA MISE À JOUR V1.1
       </Button>
 
-      {/* Picker Modal remains unchanged but consistent */}
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="bg-[#0f172a] border-white/10 text-white max-w-2xl rounded-3xl overflow-hidden p-0">
           <DialogHeader className="p-6 border-b border-white/5">
