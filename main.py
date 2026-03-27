@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Torrent Factory V1.0 - Stable Build
+Moteur Multi-threadé avec Générateur NFO intégré
 """
 
 import os
@@ -12,21 +13,16 @@ import uuid
 import logging
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-# Configuration des logs
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%H:%M:%S'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s', datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='dist')
 CORS(app)
 
-# Chemins de config
 CONFIG_DIR = "/config" if os.path.exists("/config") else "config"
 CONFIG_PATH = os.environ.get('CONFIG_PATH') or os.path.join(CONFIG_DIR, "config.json")
 
@@ -39,7 +35,9 @@ DEFAULT_CONFIG = {
     "private": True,
     "piece_size": 21, 
     "comment": "Torrent Factory V1.0 Stable",
-    "language": "fr"
+    "language": "fr",
+    "max_workers": 2,
+    "enable_nfo": True
 }
 
 tasks = []
@@ -48,8 +46,9 @@ tasks_lock = threading.Lock()
 
 def add_log(msg, level="info"):
     entry = {"id": str(uuid.uuid4()), "time": time.strftime("%H:%M:%S"), "msg": msg, "level": level}
-    logs_list.append(entry)
-    if len(logs_list) > 200: logs_list.pop(0)
+    with tasks_lock:
+        logs_list.append(entry)
+        if len(logs_list) > 200: logs_list.pop(0)
     logger.info(f"[{level.upper()}] {msg}")
 
 def load_config():
@@ -63,112 +62,114 @@ def load_config():
             logger.error(f"Erreur lecture config: {e}")
     return c
 
-def get_readable_size(path):
+def generate_nfo(source_path, dest_nfo_path):
+    """Génère un fichier .nfo propre via mediainfo."""
     try:
-        total = 0
-        if os.path.isfile(path):
-            total = os.path.getsize(path)
-        else:
-            for dirpath, _, filenames in os.walk(path):
-                for f in filenames:
-                    fp = os.path.join(dirpath, f)
-                    if os.path.exists(fp):
-                        total += os.path.getsize(fp)
+        # On cible le premier fichier vidéo si c'est un dossier
+        target = source_path
+        if os.path.isdir(source_path):
+            video_files = []
+            for root, _, files in os.walk(source_path):
+                for f in files:
+                    if f.lower().endswith(('.mkv', '.mp4', '.avi', '.ts')):
+                        video_files.append(os.path.join(root, f))
+            if not video_files:
+                return False
+            target = video_files[0]
+
+        add_log(f"Génération NFO pour {os.path.basename(target)}", "info")
+        result = subprocess.run(["mediainfo", "--Output=Text", target], capture_output=True, text=True)
         
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if total < 1024:
-                return f"{total:.2f} {unit}"
-            total /= 1024
-    except:
-        return "Unknown"
+        if result.returncode == 0:
+            header = "=========================================================\n"
+            header += f" TORRENT FACTORY V1.0 - NFO GENERATED ON {time.strftime('%Y-%m-%d')}\n"
+            header += "=========================================================\n\n"
+            with open(dest_nfo_path, "w", encoding="utf-8") as f:
+                f.write(header + result.stdout)
+            return True
+    except Exception as e:
+        add_log(f"Erreur NFO : {str(e)}", "error")
+    return False
 
-def task_processor():
-    add_log("Démarrage du processeur Stable V1.0", "info")
+def process_single_task(task_id):
+    cfg = load_config()
+    t = None
+    with tasks_lock:
+        for item in tasks:
+            if item['id'] == task_id:
+                t = item
+                break
     
-    # Vérification de mktorrent au démarrage
-    try:
-        v = subprocess.run(["mktorrent", "-h"], capture_output=True, text=True)
-        add_log("Moteur mktorrent détecté et opérationnel", "success")
-    except Exception:
-        add_log("ALERTE : mktorrent n'est pas installé sur le système !", "error")
+    if not t or t['status'] != 'running': return
 
-    while True:
-        task_to_process = None
-        cfg = load_config()
+    try:
+        out_dir = cfg['series_out'] if t['type'].lower() == 'series' else cfg['movies_out']
+        os.makedirs(out_dir, exist_ok=True)
+        
+        safe_name = re.sub(r'[\\/*?:"<>|]', '_', t['name'])
+        base_filename = f"{safe_name} [{t['lang_tag']}]"
+        dest_torrent = os.path.join(out_dir, f"{base_filename}.torrent")
+        dest_nfo = os.path.join(out_dir, f"{base_filename}.nfo")
+
+        if not os.path.exists(t['source_path']):
+            raise Exception("Source introuvable")
+
+        # 1. Optionnel : Génération du NFO
+        if cfg.get('enable_nfo'):
+            with tasks_lock: t['progress_item'] = 10
+            generate_nfo(t['source_path'], dest_nfo)
+
+        # 2. Création du Torrent
+        with tasks_lock: t['progress_item'] = 30
+        cmd = ["mktorrent", "-a", cfg['tracker_url'], "-o", dest_torrent]
+        if cfg.get('private'): cmd.append("-p")
+        if cfg.get('comment'): cmd.extend(["-c", cfg['comment']])
+        p_size = int(cfg.get('piece_size', 21))
+        cmd.extend(["-l", str(max(15, min(28, p_size)))])
+        cmd.append(t['source_path'])
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)
         
         with tasks_lock:
+            if result.returncode == 0:
+                t['status'], t['progress_item'] = 'completed', 100
+                add_log(f"Succès : {t['name']}", "success")
+            else:
+                t['status'] = 'cancelled'
+                add_log(f"Erreur mktorrent {t['name']} : {result.stderr}", "error")
+    except Exception as e:
+        with tasks_lock: t['status'] = 'cancelled'
+        add_log(f"Crash {t['name']} : {str(e)}", "error")
+
+def worker_manager():
+    """Gère la file d'attente avec un pool de threads dynamique."""
+    add_log("Moteur Stable V1.0 Multi-thread activé", "info")
+    last_workers_count = 0
+    executor = None
+
+    while True:
+        cfg = load_config()
+        current_max_workers = int(cfg.get('max_workers', 2))
+        
+        # Recréation du pool si le nombre de workers a changé
+        if current_max_workers != last_workers_count:
+            if executor: executor.shutdown(wait=False)
+            executor = ThreadPoolExecutor(max_workers=current_max_workers)
+            last_workers_count = current_max_workers
+            add_log(f"Configuration du moteur : {current_max_workers} tâches simultanées", "info")
+
+        pending_tasks = []
+        with tasks_lock:
             for t in tasks:
+                # On cherche les tâches 'running' qui n'ont pas encore commencé (progress 0)
                 if t['status'] == 'running' and t['progress_item'] == 0:
-                    task_to_process = t
-                    t['progress_item'] = 5
-                    break
+                    t['progress_item'] = 1 # Marque comme "en file d'attente active"
+                    pending_tasks.append(t['id'])
         
-        if task_to_process:
-            t = task_to_process
-            try:
-                # Détermination du dossier de sortie
-                out_dir = cfg['series_out'] if t['type'].lower() == 'series' else cfg['movies_out']
-                os.makedirs(out_dir, exist_ok=True)
-                
-                # Nettoyage du nom de fichier
-                safe_name = re.sub(r'[\\/*?:"<>|]', '_', t['name'])
-                dest_file = f"{safe_name} [{t['lang_tag']}].torrent"
-                dest_path = os.path.join(out_dir, dest_file)
-                
-                if not os.path.exists(t['source_path']):
-                    raise Exception(f"Source introuvable : {t['source_path']}")
-
-                # mktorrent échoue sur les fichiers/dossiers vides (fréquent en E2E)
-                # On s'assure que la source n'est pas vide pour les tests
-                is_empty = False
-                if os.path.isfile(t['source_path']):
-                    if os.path.getsize(t['source_path']) == 0: is_empty = True
-                elif os.path.isdir(t['source_path']):
-                    if not any(os.scandir(t['source_path'])): is_empty = True
-                
-                if is_empty:
-                    # Pour les tests E2E, on crée un petit fichier fictif si vide
-                    dummy_path = t['source_path'] if os.path.isfile(t['source_path']) else os.path.join(t['source_path'], "content.dat")
-                    if os.path.isdir(t['source_path']):
-                        with open(dummy_path, "w") as f: f.write("dummy content for mktorrent")
-                    else:
-                        with open(dummy_path, "w") as f: f.write("dummy content")
-                    add_log(f"Source vide détectée, ajout de contenu fictif pour {t['name']}", "info")
-
-                add_log(f"Début création : {t['name']}", "info")
-                
-                # Préparation commande mktorrent
-                # Utilisation de la taille de pièce de la config (défaut 21 = 2MB)
-                cmd = ["mktorrent", "-a", cfg['tracker_url'], "-o", dest_path]
-                if cfg.get('private'): cmd.append("-p")
-                if cfg.get('comment'): cmd.extend(["-c", cfg['comment']])
-                
-                # S'assurer que la taille de pièce est valide (mktorrent attend une puissance de 2 entre 15 et 28)
-                p_size = int(cfg.get('piece_size', 21))
-                if p_size < 15: p_size = 15
-                if p_size > 28: p_size = 28
-                cmd.extend(["-l", str(p_size)])
-                
-                cmd.append(t['source_path'])
-                
-                with tasks_lock: t['progress_item'] = 20
-                
-                # Exécution
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
-                
-                with tasks_lock:
-                    if result.returncode == 0:
-                        t['status'], t['progress_item'] = 'completed', 100
-                        add_log(f"Torrent créé avec succès : {dest_file}", "success")
-                    else:
-                        t['status'] = 'cancelled'
-                        add_log(f"Erreur mktorrent ({result.returncode}) pour {t['name']} : {result.stderr}", "error")
-            except Exception as e:
-                with tasks_lock:
-                    t['status'] = 'cancelled'
-                add_log(f"Crash tâche {t['name']} : {str(e)}", "error")
-        
-        time.sleep(1)
+        for tid in pending_tasks:
+            executor.submit(process_single_task, tid)
+            
+        time.sleep(2)
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def api_config():
@@ -189,13 +190,9 @@ def api_library(lib_type):
         for n in sorted(os.listdir(root)):
             if n.startswith('.'): continue
             full = os.path.join(root, n)
-            items.append({"name": n, "size": get_readable_size(full), "detected_tag": "MULTI"})
+            items.append({"name": n, "size": "Loading...", "detected_tag": "MULTI"})
     except: pass
     return jsonify(items)
-
-@app.route('/api/scan/<lib_type>', methods=['POST'])
-def api_scan(lib_type):
-    return api_library(lib_type)
 
 @app.route('/api/tasks/add', methods=['POST'])
 def api_tasks_add():
@@ -217,29 +214,17 @@ def api_tasks_add():
 
 @app.route('/api/tasks/list')
 def api_tasks_list():
-    with tasks_lock:
-        return jsonify(tasks)
-
-@app.route('/api/tasks/cancel', methods=['POST'])
-def api_tasks_cancel():
-    tid = request.json.get('id')
-    with tasks_lock:
-        for t in tasks:
-            if t['id'] == tid:
-                t['status'] = 'cancelled'
-                return jsonify({'status': 'ok'})
-    return jsonify({'error': 'not found'}), 404
+    with tasks_lock: return jsonify(tasks)
 
 @app.route('/api/tasks/clear')
 def api_tasks_clear():
     global tasks
-    with tasks_lock:
-        tasks = [t for t in tasks if t['status'] == 'running']
+    with tasks_lock: tasks = [t for t in tasks if t['status'] == 'running']
     return jsonify({"status": "ok"})
 
 @app.route('/api/logs')
 def api_logs():
-    return jsonify(logs_list)
+    with tasks_lock: return jsonify(logs_list)
 
 @app.route('/api/drives')
 def api_drives():
@@ -251,8 +236,7 @@ def api_browse():
     try:
         items = [{"name": n, "path": os.path.join(p, n)} for n in sorted(os.listdir(p)) if os.path.isdir(os.path.join(p, n))]
         return jsonify({"current": p, "items": items})
-    except:
-        return jsonify({"current": p, "items": []})
+    except: return jsonify({"current": p, "items": []})
 
 @app.route('/api/torrents/list')
 def api_torrents_list():
@@ -262,14 +246,13 @@ def api_torrents_list():
         items = []
         if path and os.path.exists(path):
             for fn in sorted(os.listdir(path)):
-                if not fn.endswith('.torrent'): continue
+                if not fn.endswith(('.torrent', '.nfo')): continue
                 full = os.path.join(path, fn)
                 try:
                     stat = os.stat(full)
                     items.append({'name': fn, 'path': full, 'size': stat.st_size, 'mtime': int(stat.st_mtime)})
                 except: pass
         return items
-    
     if cfg.get('series_out'): res['series'] = gather(cfg['series_out'])
     if cfg.get('movies_out'): res['movies'] = gather(cfg['movies_out'])
     return jsonify(res)
@@ -297,5 +280,5 @@ def serve(path):
     return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
-    threading.Thread(target=task_processor, daemon=True).start()
+    threading.Thread(target=worker_manager, daemon=True).start()
     app.run(host='0.0.0.0', port=5000)

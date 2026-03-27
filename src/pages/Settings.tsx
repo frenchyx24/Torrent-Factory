@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FolderOpen, Save, Globe, Loader2, ChevronRight, HardDrive, Languages, Info } from 'lucide-react';
+import { FolderOpen, Save, Globe, Loader2, ChevronRight, HardDrive, Languages, Info, Zap } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { translations, Language } from '@/lib/i18n';
@@ -133,10 +133,26 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Paramètres Torrent */}
+        {/* Paramètres Performance & NFO */}
         <Card className="bg-slate-900/50 border-white/10 backdrop-blur-md">
-          <CardHeader><CardTitle className="text-white flex items-center gap-2 text-lg"><Globe className="w-5 h-5 text-indigo-400" />{t.sections.torrent}</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-white flex items-center gap-2 text-lg"><Zap className="w-5 h-5 text-indigo-400" />{t.sections.system}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+             <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider opacity-70">{t.fields.workers}</Label>
+                <Input type="number" min="1" max="10" className="bg-slate-950/50 border-white/10 text-white h-9" value={config.max_workers} onChange={(e) => setConfig({...config, max_workers: parseInt(e.target.value) || 2})} />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider opacity-70">{t.options.audio}</Label>
+                <div className="flex items-center h-9">
+                  <Switch 
+                    checked={config.enable_nfo} 
+                    onCheckedChange={(val) => setConfig({...config, enable_nfo: val})}
+                    className="data-[state=checked]:bg-emerald-600"
+                  />
+                </div>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider opacity-70">{t.fields.tracker}</Label>
               <Input className="bg-slate-950/50 border-white/10 text-white h-9" value={config.tracker_url} onChange={(e) => setConfig({...config, tracker_url: e.target.value})} />
@@ -147,7 +163,7 @@ const Settings = () => {
                 <Input type="number" className="bg-slate-950/50 border-white/10 text-white h-9" value={config.piece_size} onChange={(e) => setConfig({...config, piece_size: parseInt(e.target.value) || 21})} />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider opacity-70">Mode Privé</Label>
+                <Label className="text-[10px] text-indigo-400 uppercase font-bold tracking-wider opacity-70">{t.options.private}</Label>
                 <div className="flex items-center h-9">
                   <Switch 
                     checked={config.private} 
