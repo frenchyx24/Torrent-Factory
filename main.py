@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Torrent Factory V1.0 - Stable Build
-Moteur Multi-threadé avec Générateur NFO intégré
+Générateur NFO Professionnel (Mediainfo JSON + TMDb)
 """
 
 import os
@@ -13,6 +13,8 @@ import uuid
 import logging
 import re
 import subprocess
+import requests
+from guessit import guessit
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -37,7 +39,8 @@ DEFAULT_CONFIG = {
     "comment": "Torrent Factory V1.0 Stable",
     "language": "fr",
     "max_workers": 2,
-    "enable_nfo": True
+    "enable_nfo": True,
+    "tmdb_api_key": ""
 }
 
 tasks = []
@@ -62,10 +65,29 @@ def load_config():
             logger.error(f"Erreur lecture config: {e}")
     return c
 
-def generate_nfo(source_path, dest_nfo_path):
-    """Génère un fichier .nfo propre via mediainfo."""
+def fetch_tmdb_info(name, api_key):
+    if not api_key: return None
     try:
-        # On cible le premier fichier vidéo si c'est un dossier
+        info = guessit(name)
+        title = info.get('title', name)
+        year = info.get('year')
+        search_type = "tv" if info.get('type') == 'episode' else "movie"
+        
+        url = f"https://api.themoviedb.org/3/search/{search_type}?api_key={api_key}&query={title}"
+        if year: url += f"&year={year}"
+        
+        res = requests.get(url, timeout=5).json()
+        if res.get('results'):
+            item_id = res['results'][0]['id']
+            # Get full details
+            details = requests.get(f"https://api.themoviedb.org/3/{search_type}/{item_id}?api_key={api_key}&language=fr-FR").json()
+            return details
+    except: pass
+    return None
+
+def generate_pro_nfo(source_path, dest_nfo_path, cfg):
+    """Génère un NFO de qualité professionnelle avec Mediainfo et TMDb."""
+    try:
         target = source_path
         if os.path.isdir(source_path):
             video_files = []
@@ -73,20 +95,63 @@ def generate_nfo(source_path, dest_nfo_path):
                 for f in files:
                     if f.lower().endswith(('.mkv', '.mp4', '.avi', '.ts')):
                         video_files.append(os.path.join(root, f))
-            if not video_files:
-                return False
+            if not video_files: return False
             target = video_files[0]
 
-        add_log(f"Génération NFO pour {os.path.basename(target)}", "info")
-        result = subprocess.run(["mediainfo", "--Output=Text", target], capture_output=True, text=True)
+        add_log(f"Analyse Mediainfo pour {os.path.basename(target)}", "info")
+        # On utilise JSON pour avoir un parsing fiable des flux
+        result = subprocess.run(["mediainfo", "--Output=JSON", target], capture_output=True, text=True)
+        if result.returncode != 0: return False
         
-        if result.returncode == 0:
-            header = "=========================================================\n"
-            header += f" TORRENT FACTORY V1.0 - NFO GENERATED ON {time.strftime('%Y-%m-%d')}\n"
-            header += "=========================================================\n\n"
-            with open(dest_nfo_path, "w", encoding="utf-8") as f:
-                f.write(header + result.stdout)
-            return True
+        mi_data = json.loads(result.stdout)
+        tracks = mi_data.get('media', {}).get('track', [])
+        
+        # Récupération infos TMDb
+        tmdb = fetch_tmdb_info(os.path.basename(source_path), cfg.get('tmdb_api_key'))
+        
+        nfo_content = "╔════════════════════════════════════════════════════════════════════════╗\n"
+        nfo_content += f"║  TORRENT FACTORY V1.0 - PROFESSIONAL NFO GENERATOR                     ║\n"
+        nfo_content += "╚════════════════════════════════════════════════════════════════════════╝\n\n"
+
+        if tmdb:
+            nfo_content += f" [ INFORMATIONS GÉNÉRALES ]\n"
+            nfo_content += f" ❯ TITRE       : {tmdb.get('title') or tmdb.get('name')}\n"
+            if tmdb.get('release_date') or tmdb.get('first_air_date'):
+                nfo_content += f" ❯ ANNÉE       : {(tmdb.get('release_date') or tmdb.get('first_air_date'))[:4]}\n"
+            if tmdb.get('genres'):
+                nfo_content += f" ❯ GENRE       : {', '.join([g['name'] for g in tmdb['genres']])}\n"
+            if tmdb.get('vote_average'):
+                nfo_content += f" ❯ NOTE IMDb   : {tmdb['vote_average']}/10\n"
+            if tmdb.get('overview'):
+                nfo_content += f"\n [ SYNOPSIS ]\n {tmdb['overview']}\n"
+            nfo_content += "\n" + "─" * 74 + "\n\n"
+
+        # Analyse Technique via Mediainfo
+        for track in tracks:
+            t_type = track.get('@type')
+            if t_type == 'General':
+                nfo_content += " [ FICHIER ]\n"
+                nfo_content += f" ❯ Format      : {track.get('Format')} / {track.get('FileSize_String')}\n"
+                nfo_content += f" ❯ Durée       : {track.get('Duration_String3')}\n"
+                nfo_content += f" ❯ Bitrate     : {track.get('OverallBitRate_String')}\n"
+            elif t_type == 'Video':
+                nfo_content += "\n [ VIDÉO ]\n"
+                nfo_content += f" ❯ Codec       : {track.get('Format')} {track.get('Format_Profile', '')}\n"
+                nfo_content += f" ❯ Résolution  : {track.get('Width')}x{track.get('Height')} ({track.get('DisplayAspectRatio_String')})\n"
+                nfo_content += f" ❯ Frame Rate  : {track.get('FrameRate')} FPS\n"
+                nfo_content += f" ❯ Bitrate     : {track.get('BitRate_String')}\n"
+            elif t_type == 'Audio':
+                nfo_content += f"\n [ AUDIO {track.get('StreamOrder', '')} ]\n"
+                nfo_content += f" ❯ Langue      : {track.get('Language_String', 'Inconnu')}\n"
+                nfo_content += f" ❯ Codec       : {track.get('Format')} {track.get('Format_Profile', '')}\n"
+                nfo_content += f" ❯ Canaux      : {track.get('Channels')} ({track.get('ChannelLayout', '')})\n"
+            elif t_type == 'Text':
+                nfo_content += f"\n [ SOUS-TITRE ]\n"
+                nfo_content += f" ❯ Langue      : {track.get('Language_String', 'Inconnu')} ({track.get('Format')})\n"
+
+        with open(dest_nfo_path, "w", encoding="utf-8") as f:
+            f.write(nfo_content)
+        return True
     except Exception as e:
         add_log(f"Erreur NFO : {str(e)}", "error")
     return False
@@ -114,10 +179,10 @@ def process_single_task(task_id):
         if not os.path.exists(t['source_path']):
             raise Exception("Source introuvable")
 
-        # 1. Optionnel : Génération du NFO
+        # 1. Génération du NFO (Priorité)
         if cfg.get('enable_nfo'):
             with tasks_lock: t['progress_item'] = 10
-            generate_nfo(t['source_path'], dest_nfo)
+            generate_pro_nfo(t['source_path'], dest_nfo, cfg)
 
         # 2. Création du Torrent
         with tasks_lock: t['progress_item'] = 30
@@ -142,7 +207,6 @@ def process_single_task(task_id):
         add_log(f"Crash {t['name']} : {str(e)}", "error")
 
 def worker_manager():
-    """Gère la file d'attente avec un pool de threads dynamique."""
     add_log("Moteur Stable V1.0 Multi-thread activé", "info")
     last_workers_count = 0
     executor = None
@@ -151,19 +215,17 @@ def worker_manager():
         cfg = load_config()
         current_max_workers = int(cfg.get('max_workers', 2))
         
-        # Recréation du pool si le nombre de workers a changé
         if current_max_workers != last_workers_count:
             if executor: executor.shutdown(wait=False)
             executor = ThreadPoolExecutor(max_workers=current_max_workers)
             last_workers_count = current_max_workers
-            add_log(f"Configuration du moteur : {current_max_workers} tâches simultanées", "info")
+            add_log(f"Configuration : {current_max_workers} tâches simultanées", "info")
 
         pending_tasks = []
         with tasks_lock:
             for t in tasks:
-                # On cherche les tâches 'running' qui n'ont pas encore commencé (progress 0)
                 if t['status'] == 'running' and t['progress_item'] == 0:
-                    t['progress_item'] = 1 # Marque comme "en file d'attente active"
+                    t['progress_item'] = 1 
                     pending_tasks.append(t['id'])
         
         for tid in pending_tasks:
@@ -190,7 +252,7 @@ def api_library(lib_type):
         for n in sorted(os.listdir(root)):
             if n.startswith('.'): continue
             full = os.path.join(root, n)
-            items.append({"name": n, "size": "Loading...", "detected_tag": "MULTI"})
+            items.append({"name": n, "size": "Scan...", "detected_tag": "MULTI"})
     except: pass
     return jsonify(items)
 
